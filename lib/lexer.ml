@@ -36,88 +36,89 @@ type token =
   | Number of string
   | Name of string
   | Str of string
-  | Eos
+
+let input_char' ic =
+  match input_char ic with c -> This c | exception End_of_file -> Null
+
+let null_bind f = function Null -> Null | This v -> f v
+
+let rec null_unfold f x () =
+  match f x with
+  | Null -> Seq.Nil
+  | This (x, seq) -> Seq.Cons (x, null_unfold f seq)
 
 let lex ic =
-  let rec aux lineno c =
-    let add_tok ?(line_incr=0) tok =
-      match input_char ic with
-      | c -> fun () -> Seq.Cons (tok, aux (lineno + line_incr) c)
-      | exception End_of_file -> Seq.return tok
-    in
+  let rec aux (lineno, c) =
     let cmp_ops eq no_eq =
-      match input_char ic with
-      | '=' -> add_tok eq
-      | c -> fun () -> Seq.Cons (no_eq, aux lineno c)
-      | exception End_of_file -> Seq.return no_eq
+      match input_char' ic with
+      | This '=' -> This (eq, (lineno, input_char' ic))
+      | otherwise -> This (no_eq, (lineno, otherwise))
     in
     let read_string delim =
       let buf = Buffer.create 10 in
-      let rec aux' line_incr c =
-        try 
-          match c with
-          | c when c = delim -> (Buffer.contents buf, line_incr)
-          | '\n' | '\r' -> failwith "unfinished string"
-          | '\\' -> (
-              let c = input_char ic in
-              let curr, next, line_incr =
-                match c with
-                | 'a' -> ('\007', Null, 0)
-                | 'b' -> ('\b', Null, 0)
-                | 'f' -> ('\012', Null, 0)
-                | 'n' -> ('\n', Null, 0)
-                | 'r' -> ('\r', Null, 0)
-                | 't' -> ('\t', Null, 0)
-                | 'v' -> ('\011', Null, 0)
-                | '\n' | '\r' -> ('\n', Null, 1)
-                | '0' .. '9' ->
-                    let rec escape_digit acc = function
-                      | 2 -> (Char.chr acc, Null, 0)
-                      | i -> (
-                          let c' = input_char ic in
-                          match c' with
-                          | '0' .. '9' ->
-                              escape_digit
-                                ((acc * 10) + Char.code c' - Char.code '0')
-                                (i + 1)
-                          | c' -> (Char.chr acc, This c', 0))
-                    in
-                    escape_digit (Char.code c - Char.code '0') 0
-                | _ -> failwith "todo"
+      let rec build (lineno : int) =
+        let escape () =
+          let add_and_next c =
+            Buffer.add_char buf c;
+            input_char ic |> build lineno
+          in
+          match input_char ic with
+          | 'a' -> add_and_next '\007'
+          | 'b' -> add_and_next '\b'
+          | 'f' -> add_and_next '\012'
+          | 'n' -> add_and_next '\n'
+          | 'r' -> add_and_next '\r'
+          | 't' -> add_and_next '\t'
+          | 'v' -> add_and_next '\011'
+          | '\n' | '\r' ->
+              Buffer.add_char buf '\n';
+              input_char ic |> build (lineno + 1)
+          | c when '0' <= c && c <= '9' ->
+              let rec escape_digit acc = function
+                | 2 -> Char.chr acc |> add_and_next
+                | i -> (
+                    match input_char ic with
+                    | c when '0' <= c && c <= '9' ->
+                        escape_digit
+                          ((acc * 10) + Char.code c - Char.code '0')
+                          (i + 1)
+                    | c ->
+                        Char.chr acc |> Buffer.add_char buf;
+                        build lineno c)
               in
-              Buffer.add_char buf curr;
-              match next with
-              | This next -> aux' line_incr next
-              | Null -> input_char ic |> aux' line_incr)
-          | c ->
-              Buffer.add_char buf c;
-              input_char ic |> aux' line_incr
-        with End_of_file -> failwith "String term"
+              escape_digit (Char.code c - Char.code '0') 0
+          | _ | (exception End_of_file) -> failwith "invalid escape"
+        in
+        function
+        | c when c = delim -> (Buffer.contents buf, lineno)
+        | '\n' | '\r' -> failwith "unterminated string"
+        | '\\' -> escape ()
+        | c ->
+            Buffer.add_char buf c;
+            input_char ic |> build lineno
       in
-      let tok, line_incr = input_char ic |> aux' 0 in
-      Str tok |> add_tok ~line_incr
+      try
+        let s, lineno = input_char ic |> build lineno in
+        This (Str s, (lineno, input_char' ic))
+      with End_of_file -> failwith "unterminated string"
     in
-    match c with
-    | '\r' -> (
-        try
-          match input_char ic with
-          | '\n' -> input_char ic |> aux (lineno + 1)
-          | c -> aux (lineno + 1) c
-        with End_of_file -> Seq.empty)
-    | '\n' -> (
-        try
-          match input_char ic with
-          | '\r' -> input_char ic |> aux (lineno + 1)
-          | c -> aux (lineno + 1) c
-        with End_of_file -> Seq.empty)
-    | '=' -> cmp_ops Eq Assign
-    | '<' -> cmp_ops Leq Le
-    | '>' -> cmp_ops Geq Ge
-    | '~' -> cmp_ops Neq Tilde
-    | '"' -> read_string '"'
-    | '\'' -> read_string '\''
-    (* | '.' -> *)
-      
-    | _ -> failwith "todo"
+    null_bind
+      (function
+        | '\r' -> (
+            match input_char' ic with
+            | This '\n' -> aux (lineno + 1, input_char' ic)
+            | otherwise -> aux (lineno + 1, otherwise))
+        | '\n' -> (
+            match input_char' ic with
+            | This '\r' -> aux (lineno + 1, input_char' ic)
+            | otherwise -> aux (lineno + 1, otherwise))
+        | '=' -> cmp_ops Eq Assign
+        | '<' -> cmp_ops Leq Le
+        | '>' -> cmp_ops Geq Ge
+        | '~' -> cmp_ops Neq Tilde
+        | '"' -> read_string '"'
+        | '\'' -> read_string '\''
+        | _ -> failwith "todo")
+      c
   in
-  aux 0
+  null_unfold aux (0, input_char' ic)
