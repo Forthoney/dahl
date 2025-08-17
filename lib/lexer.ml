@@ -1,9 +1,32 @@
 type token =
-  | Dash
-  | Tilde
+  | Plus
+  | Minus
+  | Mult
+  | Div
+  | Mod
+  | Carat
+  | Colon
+  | Semicolon
+  | Comma
+  | Hash
+  | LParen
+  | RParen
+  | LBrace
+  | RBrace
   | LBrack
   | RBrack
+  | Dash
+  | Tilde
   | Assign
+  | Dot
+  | Concat
+  | Dots
+  | Eq
+  | Ge
+  | Geq
+  | Le
+  | Leq
+  | Neq
   | And
   | Break
   | Do
@@ -25,22 +48,71 @@ type token =
   | True
   | Until
   | While
-  | Concat
-  | Dots
-  | Eq
-  | Ge
-  | Geq
-  | Le
-  | Leq
-  | Neq
   | Number of string
-  | Name of string
   | Str of string
+  | Name of string
+
+let tok_to_string = function
+  | Plus -> "Plus"
+  | Minus -> "Minus"
+  | Mult -> "Mult"
+  | Div -> "Div"
+  | Mod -> "Mod"
+  | Carat -> "Carat"
+  | Colon -> "Colon"
+  | Semicolon -> "Semicolon"
+  | Comma -> "Comma"
+  | Hash -> "Hash"
+  | LParen -> "LParen"
+  | RParen -> "RParen"
+  | LBrace -> "LBrace"
+  | RBrace -> "RBrace"
+  | LBrack -> "LBrack"
+  | RBrack -> "RBrack"
+  | Dash -> "Dash"
+  | Tilde -> "Tilde"
+  | Assign -> "Assign"
+  | Dot -> "Dot"
+  | Concat -> "Concat"
+  | Dots -> "Dots"
+  | Eq -> "Eq"
+  | Ge -> "Ge"
+  | Geq -> "Geq"
+  | Le -> "Le"
+  | Leq -> "Leq"
+  | Neq -> "Neq"
+  | And -> "And"
+  | Break -> "Break"
+  | Do -> "Do"
+  | Else -> "Else"
+  | Elseif -> "Elseif"
+  | End -> "End"
+  | False -> "False"
+  | For -> "For"
+  | Function -> "Function"
+  | If -> "If"
+  | In -> "In"
+  | Local -> "Local"
+  | Nil -> "Nil"
+  | Not -> "Not"
+  | Or -> "Or"
+  | Repeat -> "Repeat"
+  | Return -> "Return"
+  | Then -> "Then"
+  | True -> "True"
+  | Until -> "Until"
+  | While -> "While"
+  | Number n -> "Number " ^ n
+  | Str s -> "Str " ^ s
+  | Name s -> "Name " ^  s
 
 let input_char' ic =
   match input_char ic with c -> This c | exception End_of_file -> Null
 
 let null_bind f = function Null -> Null | This v -> f v
+
+let is_digit c = '0' <= c && c <= '9'
+let is_alpha c = 'A' <= c && c <= 'z'
 
 let rec null_unfold f x () =
   match f x with
@@ -73,12 +145,12 @@ let lex ic =
           | '\n' | '\r' ->
               Buffer.add_char buf '\n';
               input_char ic |> build (lineno + 1)
-          | c when '0' <= c && c <= '9' ->
+          | c when is_digit c ->
               let rec escape_digit acc = function
                 | 2 -> Char.chr acc |> add_and_next
                 | i -> (
                     match input_char ic with
-                    | c when '0' <= c && c <= '9' ->
+                    | c when is_digit c ->
                         escape_digit
                           ((acc * 10) + Char.code c - Char.code '0')
                           (i + 1)
@@ -102,8 +174,25 @@ let lex ic =
         This (Str s, (lineno, input_char' ic))
       with End_of_file -> failwith "unterminated string"
     in
+    let emit tok = This (tok, (lineno, input_char' ic)) in
     null_bind
       (function
+        | '+' -> emit Plus
+        | '-' -> emit Minus
+        | '*' -> emit Mult
+        | '/' -> emit Div
+        | '%' -> emit Mod
+        | '^' -> emit Carat
+        | ':' -> emit Colon
+        | ';' -> emit Semicolon
+        | ',' -> emit Comma
+        | '#' -> emit Hash
+        | '(' -> emit LParen
+        | ')' -> emit RParen
+        | '{' -> emit LBrace
+        | '}' -> emit RBrace
+        | ']' -> emit RBrack
+        | '_' -> emit (Name "_")
         | '\r' -> (
             match input_char' ic with
             | This '\n' -> aux (lineno + 1, input_char' ic)
@@ -118,7 +207,47 @@ let lex ic =
         | '~' -> cmp_ops Neq Tilde
         | '"' -> read_string '"'
         | '\'' -> read_string '\''
-        | _ -> failwith "todo")
+        | '.' ->
+          (match input_char' ic with
+          | This '.' ->
+              (match input_char' ic with
+                | This '.' -> emit Dots
+                | next -> This (Concat, (lineno, next)))
+          | This c when is_digit c -> emit (Number "todo")
+          | next -> This (Dot, (lineno, next)))
+        | ' ' | '\t' | '\011' | '\012'  -> aux (lineno, input_char' ic)
+        | c when is_digit c -> emit (Number "todo") 
+        | c when is_alpha c -> 
+          let buf = Buffer.create 8 in
+          let () = Buffer.add_char buf c in
+          let rec aux = function
+            | This c when is_alpha c || is_digit c -> Buffer.add_char buf c; input_char' ic |> aux
+            | _ -> Buffer.contents buf
+          in
+          (match input_char' ic |> aux with
+          | "and" -> emit And
+          | "break" -> emit Break
+          | "do" -> emit Do
+          | "else" -> emit Else
+          | "elseif" -> emit Elseif
+          | "end" -> emit End
+          | "false" -> emit False
+          | "for" -> emit For
+          | "function" -> emit Function
+          | "if" -> emit If
+          | "in" -> emit In
+          | "local" -> emit Local
+          | "nil" -> emit Nil
+          | "not" -> emit Not
+          | "or" -> emit Or
+          | "repeat" -> emit Repeat
+          | "return" -> emit Return
+          | "then" -> emit Then
+          | "true" -> emit True
+          | "until" -> emit Until
+          | "while" -> emit While
+          | nonreserved -> emit (Name nonreserved))
+        | _ -> failwith "unknown char")
       c
   in
   null_unfold aux (0, input_char' ic)

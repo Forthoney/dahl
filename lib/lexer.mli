@@ -1,9 +1,35 @@
 type token =
-  | Dash
-  | Tilde
+  (* unambiguous symbols *)
+  | Plus
+  | Minus
+  | Mult
+  | Div
+  | Mod
+  | Carat
+  | Colon
+  | Semicolon
+  | Comma
+  | Hash
+  | LParen
+  | RParen
+  | LBrace
+  | RBrace
+  (* ambiguous symbols *)
   | LBrack
   | RBrack
+  | Dash
+  | Tilde
   | Assign
+  | Dot
+  | Concat
+  | Dots
+  | Eq
+  | Ge
+  | Geq
+  | Le
+  | Leq
+  | Neq
+  (* keywords *)
   | And
   | Break
   | Do
@@ -25,16 +51,11 @@ type token =
   | True
   | Until
   | While
-  | Concat
-  | Dots
-  | Eq
-  | Ge
-  | Geq
-  | Le
-  | Leq
-  | Neq
+  (* literals, etc *)
   | Number of string
-  | Name of string
   | Str of string
+  | Name of string
 
-val lex : in_channel -> token Seq.t
+val tok_to_string: token -> string
+
+val lex: in_channel -> token Seq.t
