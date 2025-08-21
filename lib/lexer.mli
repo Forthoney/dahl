@@ -58,4 +58,4 @@ type token =
 
 val tok_to_string: token -> string
 
-val lex: in_channel -> token Seq.t
+val from_channel: in_channel -> token Seq.t

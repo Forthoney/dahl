@@ -119,7 +119,7 @@ let rec null_unfold f x () =
   | Null -> Seq.Nil
   | This (x, seq) -> Seq.Cons (x, null_unfold f seq)
 
-let lex ic =
+let from_channel ic =
   let rec aux (lineno, c) =
     let cmp_ops eq no_eq =
       match input_char' ic with
@@ -159,7 +159,8 @@ let lex ic =
                         build lineno c)
               in
               escape_digit (Char.code c - Char.code '0') 0
-          | _ | (exception End_of_file) -> failwith "invalid escape"
+          | c -> add_and_next c (* This behavior changes starting with Lua 5.2*)
+          | exception End_of_file -> failwith "invalid escape"
         in
         function
         | c when c = delim -> (Buffer.contents buf, lineno)
