@@ -2,6 +2,8 @@
 
 (name dahl)
 
+(using menhir 3.0)
+
 (generate_opam_files true)
 
 (source

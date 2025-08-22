@@ -1,89 +1,115 @@
 (*
 The MIT License
 
-Copyright (c) 2020 Jason D. Nielsen <drjdnielsen@gmail.com> (original author)
-Copyright (c) 2025 Seong-Heon jung <castlehoneyjung@gmail.com> (modified)
+Copyright (c) 2020 Jason D. Nielsen <drjdnielsen@gmail.com>
+Copyright (c) 2025 Seong-Heon Jung <castlehoneyjung@gmail.com>
 *)
+
 
 {
 open Token
+open Lexer_util
 }
 
 let white = [' ' '\t']+
 let newline = '\r'? '\n'
-let decimal = ['0'-'9']+
-let hex = '0' ['x' 'X'] ['0'-'9' 'A'-'F' 'a'-'f']+
-let integer =  decimal | hex
+let int = ['0'-'9']+
+let hexdec = '0' ['x' 'X'] ['0'-'9' 'A'-'F' 'a'-'f']+
+let integer =  int | hexdec
 let expo = ['e' 'E'] ['+' '-']? ['0'-'9'] ['0'-'9']*
 let float1 = int ('.' ['0'-'9']* )? expo?
 let float2 = '.' ['0'-'9']+ expo?
 let num = float1 | float2 | integer
 let ident = [ 'a'-'z' 'A'-'Z' '_' ] [ 'a'-'z' 'A'-'Z' '0'-'9' '_' ]*
-let single_str = '\'' ([^ '\'' '\\' ] | ([ '\\' ] [^ '_' ]))* '\''
-let double_str = '\"' ([^ '\"' '\\' ] | ([ '\\' ] [^ '_' ]))* '\"'
-let str = single_str | double_str
-let long_str_start = '[' '='* '['
-let long_comment = '-' '-' long_str
-let long_end = ']' '='*
+let str1 = '\"' ([^ '\"' '\\' ] | ([ '\\' ] [^ '_' ]))* '\"'
+let str2 = '\'' ([^ '\'' '\\' ] | ([ '\\' ] [^ '_' ]))* '\''
+let str = str1 | str2
+let lstr = '[' '='* '['
+let lcomm = '-' '-' lstr
+let lend = ']' '='*
+let bool = "nil" | "true" | "false"
 
-rule token = parse
-  | white { token lexbuf }
-  | newline { Lexing.new_line lexbuf }
-  | "+"            { Plus }
-  | "-"            { Minus }
-  | "*"            { Mult }
-  | "/"            { Div }
-  | "%"            { Mod }
-  | "^"            { Carat }
+rule tok =
+  parse
+  | white          { tok lexbuf }
+  | newline        { new_line lexbuf; tok lexbuf }
+  | "+"            { PLUS }
+  | "-"            { MINUS }
+  | "*"            { MULT }
+  | "/"            { DIV }
+  | "%"            { MOD }
+  | "^"            { CARAT }
   | ">"            { GT }
   | "<"            { LT }
   | ">="           { GE }
   | "<="           { LE }
   | "=="           { EQ }
   | "~="           { NE }
-  | "="            { Assign }
-  | "."            { Dot }
-  | ".."           { Cat }
-  | "..."          { Ellipsis }
-  | ":"            { Colon }
-  | "::"           { Dcolon }  
-  | ";"            { Semi }
-  | ","            { Comma }
-  | "#"            { Hash }
-  | "{"            { LBrace }
-  | "}"            { RBrace }
-  | "("            { LParen }
-  | ")"            { RParen }
-  | "["            { LBracket }
-  | "]"            { RBracket }  
-  | "and"          { And }
-  | "break"        { Break }
-  | "do"           { Do }
-  | "else"         { Else }
-  | "elseif"       { Elseif }
-  | "end"          { End }
-  | "for"          { For }
-  | "function"     { Function }
-  | "goto"         { Goto }
-  | "if"           { If }
-  | "in"           { In }
-  | "local"        { Local }
-  | "not"          { Not }
-  | "or"           { Or }
-  | "repeat"       { Repeat }
-  | "return"       { Return }
-  | "then"         { Then }
-  | "until"        { Until }
-  | "while"        { While }
-  | "<quit>"       { Eof }
-  | "true"         { True }
-  | "false"        { False }
-  | "nil"          { Nil }
-  | long_str_start { TODO }
-  | long_comment   { TODO }
-  | "--"           { comment lexbuf }
-  | num            { Number (lexeme lexbuf) }
-  | ident          { Ident (lexeme lexbuf) }
-  | str            { Str (lexeme lexbuf) }
+  | "="            { ASSIGN }
+  | "."            { DOT }
+  | ".."           { CAT }
+  | "..."          { ELLIPSIS }
+  | ":"            { COLON }
+  | "::"           { DCOLON }  
+  | ";"            { SEMI }
+  | ","            { COMMA }
+  | "#"            { HASH }
+  | "{"            { LCB }
+  | "}"            { RCB }
+  | "("            { LPAR }
+  | ")"            { RPAR }
+  | "["            { LB }
+  | "]"            { RB }  
+  | "and"          { AND }
+  | "break"        { BREAK }
+  | "do"           { DO }
+  | "else"         { ELSE }
+  | "elseif"       { ELSEIF }
+  | "end"          { END }
+  | "for"          { FOR }
+  | "function"     { FUNCTION }
+  | "goto"         { GOTO }
+  | "if"           { IF }
+  | "in"           { IN }
+  | "local"        { LOCAL }
+  | "not"          { NOT }
+  | "or"           { OR }
+  | "repeat"       { REPEAT }
+  | "return"       { RETURN }
+  | "then"         { THEN }
+  | "until"        { UNTIL }
+  | "while"        { WHILE }
+  | "<quit>"       { EOF }
+  | lstr           { in_lstr lexbuf; longstring lexbuf }
+  | lcomm          { in_lcomm lexbuf; longcomment lexbuf }
+  | "--"           { comment lexbuf }  
+  | num            { NUM_CONST(lexeme lexbuf) }
+  | bool           { BOOL(lexeme lexbuf) }  
+  | ident          { IDENT(lexeme lexbuf) }
+  | str            { STR_CONST(lexeme lexbuf) }
+  | _              { failwith (pspos lexbuf) }
   | eof            { EOF }
-  | 
+  and longstring = parse
+  | lend           { out_lstr lexbuf longstring eolstr }
+  | newline        { new_line lexbuf; nl_buf(); longstring lexbuf }
+  | _ as c         { add_buf c; longstring lexbuf }
+  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }
+  and comment = parse
+  | newline        { new_line lexbuf; tok lexbuf }
+  | _              { comment lexbuf }
+  | eof            { print_endline("EOF in not allowed in comment!"); failwith (pspos lexbuf) }
+  and longcomment = parse
+  | lend           { out_lcomm lexbuf longcomment eolcomm }
+  | newline        { new_line lexbuf; longcomment lexbuf }
+  | _              { longcomment lexbuf }
+  | eof            { print_endline("EOF in not allowed in comment!"); failwith (pspos lexbuf) }
+  and eolstr = parse
+  | "]"            { add_buf ']'; STR_CONST(get_buf()) }
+  | newline        { new_line lexbuf; nl_buf(); longstring lexbuf }  
+  | _ as c         { add_buf c; longstring lexbuf }
+  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }
+  and eolcomm = parse
+  | "]"            { tok lexbuf }
+  | newline        { new_line lexbuf; longcomment lexbuf }  
+  | _              { new_line lexbuf; longcomment lexbuf }
+  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }    
