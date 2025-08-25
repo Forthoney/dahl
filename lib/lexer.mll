@@ -1,115 +1,131 @@
-(*
-The MIT License
-
-Copyright (c) 2020 Jason D. Nielsen <drjdnielsen@gmail.com>
-Copyright (c) 2025 Seong-Heon Jung <castlehoneyjung@gmail.com>
-*)
-
-
 {
 open Token
-open Lexer_util
+
+let keyword = function
+  | "and" -> AND | "break" -> BREAK | "do" -> DO
+  | "else" -> ELSE | "elseif" -> ELSEIF | "end" -> END
+  | "false" -> FALSE | "for" -> FOR | "function" -> FUNCTION
+  | "if" -> IF | "in" -> IN | "local" -> LOCAL
+  | "nil" -> NIL | "not" -> NOT | "or" -> OR
+  | "repeat" -> REPEAT | "return" -> RETURN
+  | "then" -> THEN | "true" -> TRUE
+  | "until" -> UNTIL | "while" -> WHILE
+  | _ as id -> IDENT id
+
+
+open Lexing
+
+let buf = Buffer.create 256
+let push_char = Buffer.add_char buf
+let push_string = Buffer.add_string buf
+let clear_buf () = Buffer.reset buf
+
+let unexpected c lexbuf =
+  let p = lexeme_start_p lexbuf in
+  failwith (Printf.sprintf "Unexpected character %C at line %d, column %d" c p.pos_lnum (p.pos_cnum - p.pos_bol))
+
+let escape = function
+  | 'a'->'\007'
+  | 'b'->'\008'
+  | 'f'->'\012'
+  | 'n'->'\n'
+  | 'r'->'\r'
+  | 't'->'\t'
+  | 'v'->'\011'
+  | '\\'->'\\'
+  | '\''->'\''
+  | '\"'->'\"'
+  | _ -> failwith "unreachable"
+
+let numeric_escape s =
+  match int_of_string s with
+  | n when 0 <= n && n < 256 -> Char.chr n
+  | _ -> invalid_arg "decimal escape out of range"
+
+let count_level = String.fold_left (fun cnt c -> if c = '=' then cnt + 1 else cnt) 0
 }
 
-let white = [' ' '\t']+
-let newline = '\r'? '\n'
-let int = ['0'-'9']+
-let hexdec = '0' ['x' 'X'] ['0'-'9' 'A'-'F' 'a'-'f']+
-let integer =  int | hexdec
-let expo = ['e' 'E'] ['+' '-']? ['0'-'9'] ['0'-'9']*
-let float1 = int ('.' ['0'-'9']* )? expo?
-let float2 = '.' ['0'-'9']+ expo?
-let num = float1 | float2 | integer
-let ident = [ 'a'-'z' 'A'-'Z' '_' ] [ 'a'-'z' 'A'-'Z' '0'-'9' '_' ]*
-let str1 = '\"' ([^ '\"' '\\' ] | ([ '\\' ] [^ '_' ]))* '\"'
-let str2 = '\'' ([^ '\'' '\\' ] | ([ '\\' ] [^ '_' ]))* '\''
-let str = str1 | str2
-let lstr = '[' '='* '['
-let lcomm = '-' '-' lstr
-let lend = ']' '='*
-let bool = "nil" | "true" | "false"
 
-rule tok =
-  parse
-  | white          { tok lexbuf }
-  | newline        { new_line lexbuf; tok lexbuf }
-  | "+"            { PLUS }
-  | "-"            { MINUS }
-  | "*"            { MULT }
-  | "/"            { DIV }
-  | "%"            { MOD }
-  | "^"            { CARAT }
-  | ">"            { GT }
-  | "<"            { LT }
-  | ">="           { GE }
-  | "<="           { LE }
-  | "=="           { EQ }
-  | "~="           { NE }
-  | "="            { ASSIGN }
-  | "."            { DOT }
-  | ".."           { CAT }
-  | "..."          { ELLIPSIS }
-  | ":"            { COLON }
-  | "::"           { DCOLON }  
-  | ";"            { SEMI }
-  | ","            { COMMA }
-  | "#"            { HASH }
-  | "{"            { LCB }
-  | "}"            { RCB }
-  | "("            { LPAR }
-  | ")"            { RPAR }
-  | "["            { LB }
-  | "]"            { RB }  
-  | "and"          { AND }
-  | "break"        { BREAK }
-  | "do"           { DO }
-  | "else"         { ELSE }
-  | "elseif"       { ELSEIF }
-  | "end"          { END }
-  | "for"          { FOR }
-  | "function"     { FUNCTION }
-  | "goto"         { GOTO }
-  | "if"           { IF }
-  | "in"           { IN }
-  | "local"        { LOCAL }
-  | "not"          { NOT }
-  | "or"           { OR }
-  | "repeat"       { REPEAT }
-  | "return"       { RETURN }
-  | "then"         { THEN }
-  | "until"        { UNTIL }
-  | "while"        { WHILE }
-  | "<quit>"       { EOF }
-  | lstr           { in_lstr lexbuf; longstring lexbuf }
-  | lcomm          { in_lcomm lexbuf; longcomment lexbuf }
-  | "--"           { comment lexbuf }  
-  | num            { NUM_CONST(lexeme lexbuf) }
-  | bool           { BOOL(lexeme lexbuf) }  
-  | ident          { IDENT(lexeme lexbuf) }
-  | str            { STR_CONST(lexeme lexbuf) }
-  | _              { failwith (pspos lexbuf) }
-  | eof            { EOF }
-  and longstring = parse
-  | lend           { out_lstr lexbuf longstring eolstr }
-  | newline        { new_line lexbuf; nl_buf(); longstring lexbuf }
-  | _ as c         { add_buf c; longstring lexbuf }
-  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }
-  and comment = parse
-  | newline        { new_line lexbuf; tok lexbuf }
-  | _              { comment lexbuf }
-  | eof            { print_endline("EOF in not allowed in comment!"); failwith (pspos lexbuf) }
-  and longcomment = parse
-  | lend           { out_lcomm lexbuf longcomment eolcomm }
-  | newline        { new_line lexbuf; longcomment lexbuf }
-  | _              { longcomment lexbuf }
-  | eof            { print_endline("EOF in not allowed in comment!"); failwith (pspos lexbuf) }
-  and eolstr = parse
-  | "]"            { add_buf ']'; STR_CONST(get_buf()) }
-  | newline        { new_line lexbuf; nl_buf(); longstring lexbuf }  
-  | _ as c         { add_buf c; longstring lexbuf }
-  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }
-  and eolcomm = parse
-  | "]"            { tok lexbuf }
-  | newline        { new_line lexbuf; longcomment lexbuf }  
-  | _              { new_line lexbuf; longcomment lexbuf }
-  | eof            { print_endline("EOF in not allowed in string!"); failwith (pspos lexbuf) }    
+let newline = ['\n' '\r'] | "\r\n" | "\n\r"
+let space = [' ' '\t' '\012' '\013']
+let digit = ['0'-'9']
+let alpha = ['A'-'Z''a'-'z''_']
+let alnum = alpha | digit
+
+let dec_int = digit+
+let dec_frac = digit* '.' digit+ | digit+ '.' digit*
+let dec_exp = ['e' 'E'] ['+' '-']? digit+
+let dec_float = dec_frac (dec_exp)? | dec_int dec_exp
+
+let ident = alpha alnum*
+let lb_open = '[' '='* '['
+let lb_close = ']' '='* ']'
+
+rule token = parse
+  | newline { token lexbuf }
+  | space+  { token lexbuf }
+  | "--" lb_open as s { long_comment (count_level s) lexbuf; token lexbuf }
+  | "--" [^ '\n' '\r']* { token lexbuf }
+  | (lb_open as s) {
+    long_string (count_level s) lexbuf;
+    STRING (Buffer.contents buf)
+  }
+  | ('\''|'"' as delim) {
+    clear_buf ();
+    short_string delim lexbuf;
+    STRING (Buffer.contents buf)
+  }
+  | (dec_float as s) { NUMBER s }
+  | (dec_int as s) { NUMBER s }
+  | (ident as s) { keyword s }
+  | "..."   { ELLIPSIS }
+  | ".."    { CONCAT }
+  | "."     { DOT }
+  | "=="    { EQ }
+  | "~="  { NEQ }
+  | "<="  { LTE }
+  | ">="  { GTE }
+  | "<"   { LT }
+  | ">"   { GT }
+  | "="   { ASSIGN }
+  | "+"   { PLUS }
+  | "-"   { MINUS }
+  | "*"   { STAR }
+  | "/"   { SLASH }
+  | "%"   { MODULO }
+  | "^"   { CARET }
+  | "#"   { HASH }
+  | "("   { LPAREN }
+  | ")"   { RPAREN }
+  | "{"   { LBRACE }
+  | "}"   { RBRACE }
+  | "["   { LBRACKET }
+  | "]"   { RBRACKET }
+  | ";"   { SEMICOLON }
+  | ":"   { COLON }
+  | ","   { COMMA }
+  | eof   { EOF }
+  | _ as c { unexpected c lexbuf }
+  and short_string delim = parse
+    | '\n' | '\r' { failwith "Unterminated short string literal" }
+    | '\\' ('a'|'b'|'f'|'n'|'r'|'t'|'v'|'\\'|'\''|'\"' as c) { push_char (escape c); short_string delim lexbuf }
+    | '\\' (digit digit? digit? as s) { push_char (numeric_escape s); short_string delim lexbuf }
+    | '\\' newline { push_char '\n'; short_string delim lexbuf }
+    | (_ as c) { if c = delim then () else (push_char c; short_string delim lexbuf) }
+    | eof { failwith "Unterminated short string literal" }
+  and long_string eqs = parse
+    | ']' '='* ']' as s {
+        let level = count_level s in
+        if level = eqs then ()
+        else (push_string s; long_string eqs lexbuf)
+      }
+    | _ as c { push_char c; long_string eqs lexbuf }
+    | eof { failwith "Unterminated long string" }
+  and long_comment eqs = parse
+    | ']' '='* ']' as s {
+        let level = count_level s in
+        if level = eqs then ()
+        else (long_comment eqs lexbuf)
+      }
+    | _ { long_comment eqs lexbuf }
+    | eof { () }
