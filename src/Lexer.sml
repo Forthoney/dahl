@@ -1,4 +1,4 @@
-structure Lexer =
+structure Lexer: LEXER =
 struct
   structure SC = StringCvt
   val input1 = TextIO.StreamIO.input1
@@ -25,7 +25,7 @@ struct
   | TRUE
   | UNTIL
   | WHILE
-  | IDENT of string
+  | NAME of string
   | INT of int
   | FLOAT of real
   | STRING of string
@@ -58,7 +58,19 @@ struct
   | DOT
   | VARARG
 
-  val tToString =
+  (* punctuation helpers *)
+  fun isAssign ASSIGN = true
+    | isAssign _ = false
+  fun isComma COMMA = true
+    | isComma _ = false
+  fun isDot DOT = true
+    | isDot _ = false
+  fun isColon COLON = true
+    | isColon _ = false
+  fun isSemicolon SEMICOLON = true
+    | isSemicolon _ = false
+
+  val toString =
     fn AND => "AND"
      | BREAK => "BREAK"
      | DO => "DO"
@@ -80,7 +92,7 @@ struct
      | TRUE => "TRUE"
      | UNTIL => "UNTIL"
      | WHILE => "WHILE"
-     | IDENT s => "IDENT(" ^ s ^ ")"
+     | NAME s => "NAME(" ^ s ^ ")"
      | INT i => "INT(" ^ Int.toString i ^ ")"
      | FLOAT r => "FLOAT(" ^ Real.toString r ^ ")"
      | STRING s => "STRING(" ^ String.toString s ^ ")"
@@ -168,7 +180,7 @@ struct
             | "true" => TRUE
             | "until" => UNTIL
             | "while" => WHILE
-            | s => IDENT s
+            | s => NAME s
           , strm'
           )
         end
@@ -286,17 +298,12 @@ struct
                | SOME (#"X", strm') => hex strm'
                | _ => dec strm)
         | c =>
-          if Char.isDigit c then SOME (dec oldstrm)
-          else if Char.isAlpha c then SOME (name oldstrm)
-          else raise Fail "unknown char"
+            if Char.isDigit c then SOME (dec oldstrm)
+            else if Char.isAlpha c then SOME (name oldstrm)
+            else raise Fail "unknown char"
 
       val stream = SC.skipWS input1 stream
     in
       Option.composePartial (decode stream, input1) stream
     end
 end
-
-fun loop strm =
-  print (LargeInt.toString (MLton.size (Lexer.scan strm)))
-
-val _ = loop (TextIO.getInstream TextIO.stdIn)
