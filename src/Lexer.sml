@@ -69,6 +69,10 @@ struct
     | isColon _ = false
   fun isSemicolon SEMICOLON = true
     | isSemicolon _ = false
+  fun isLParen LPAREN = true
+    | isLParen _ = false
+  fun isRParen RPAREN = true
+    | isRParen _ = false
 
   val toString =
     fn AND => "AND"

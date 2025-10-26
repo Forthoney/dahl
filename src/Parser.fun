@@ -20,7 +20,74 @@ struct
       SOME (NAME s, strm) => SOME (s, strm)
     | _ => NONE
 
-  fun exp strm =
+  (* prefixexp ::= Name
+                 | prefixexp '[' exp ']'
+                 | prefixexp '.' Name
+                 | prefixexp args
+                 | prefixexp ':' Name args
+                 | '(' exp ')'             *)
+  fun prefixExp strm =
+    let
+      (* prefixexp '[' exp ']' *)
+      fun index prev strm =
+        case exp strm of 
+          NONE => raise Fail "invalid index"
+        | SOME (exp, strm) =>
+          case tokenScan strm of
+            SOME (RBRACK, strm) => loop (PVar (VIndex (prev, exp))) strm
+          | _ => raise Fail "missing ']'"
+
+      (* prefixexp '.' Name *)
+      and field prev strm =
+        case tokenScan strm of
+          SOME (NAME n, strm) => loop (PVar (VField (prev, name))) strm
+        | _ => raise Fail "expected name of field"
+
+      (* prefixexp ':' Name args *)
+      and method prev strm =
+        case tokenScan strm of
+          SOME (NAME n, strm) =>
+          (case tokenScan strm of
+            SOME (LPAREN, strm) => loop (PFnCall (Method (prev, args))) strm
+          | _ => raise Fail "missing ')'")
+        | _ => raise Fail "missing method name"
+
+      and loop prev strm =
+        case tokenScan strm of
+          SOME (DOT, strm) => field prev strm
+        | SOME (LBRACK, strm) => index prev strm
+        | SOME (COLON, strm) => method prev strm
+        | _ => prev
+
+      val (start, strm) = 
+        case tokenScan strm of
+          SOME (NAME n, strm) => (PVar (VName n), strm)
+        | SOME (LPAREN, strm) =>
+          (case exp strm of
+            NONE => raise Fail "invalid prefix expression"
+          | SOME (exp, strm) =>
+            case consume isRParen of
+              NONE => raise Fail "invalid prefix expression"
+            | SOME strm => (PExp exp, strm))
+        | _ => raise Fail "invalid prefix expression"
+    in
+      loop start strm
+    end
+
+  and args strm =
+    case tokenScan strm of
+      SOME (STRING s, strm) => (AString s, strm)
+    | SOME (LPAREN, strm) =>
+      let
+        val (args, strm) = Reader.repeat exp {sep = SOME comma} strm
+      in
+        case tokenScan strm of
+          SOME (RPAREN, strm) => (AExp args, strm)
+        | _ => raise Fail "missing )"
+      end
+    | _ => raise Fail "unimplemented"
+
+  and exp strm =
     case tokenScan strm of
       SOME (NIL, strm) => SOME (ENil, strm)
     | SOME (TRUE, strm) => SOME (ETrue, strm)
@@ -113,23 +180,6 @@ struct
         case consume isColon strm of
           NONE => fnArgs strm
         | SOME strm => method strm
-    end
-
-  (* prefixexp is exceptional somewhat amongst the parsing rules
-     because it is right-recursive.
-     Hence, it requires an inner loop. *)
-  and prefixExp strm =
-    let
-      (* fun loop acc strm = *)
-        (* case tokenScan strm of *)
-          (* NONE => () *)
-        (* | SOME (NAME s, strm) => loop (VName s :: acc) strm *)
-        (* | SOME () *)
-    in
-      case tokenScan strm of
-        NONE => NONE
-      | SOME (NAME s, strm) => SOME (PVar s, strm)
-      | SOME () => ()
     end
 
   and stat strm =

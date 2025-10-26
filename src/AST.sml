@@ -39,7 +39,7 @@ struct
   datatype var =
     VName of name
   | VIndex of prefix_exp * exp
-  | VProp of prefix_exp * name
+  | VField of prefix_exp * name
   and prefix_exp =
     PVar of var
   | PFnCall of fn_call
