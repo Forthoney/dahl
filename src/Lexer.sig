@@ -61,6 +61,7 @@ sig
   val isDot: token -> bool
   val isColon: token -> bool
   val isSemicolon: token -> bool
+  val isRParen: token -> bool
   
   val toString: token -> string
   val scan: (token, TextIO.StreamIO.instream) StringCvt.reader
