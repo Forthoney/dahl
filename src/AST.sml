@@ -64,9 +64,11 @@ struct
   | FArray of exp
 
   and stat =
-    Assign of name list * exp list
+    Assign of var list * exp list
+  | GlobalFunction of name list * name option * {params: name list, vararg: bool, block: block}
   | LocalAssign of name list * exp list
   | LocalFunction of name * {params: name list, vararg: bool, block: block}
+  | FnCall of fn_call
 
   and block =
     Block of stat list * laststat option
@@ -144,6 +146,9 @@ struct
         in
           S.namedStruct ("local-function", [S.symbol name, S.List (map S.Atom params @ vararg), block blk])
         end
+      | Assign (names, exps) =>
+          S.namedStruct ("assign", [S.List (map var names), S.List (map exp exps)])
+     
 
     and laststmt (Return exps) = S.namedStruct ("return", map exp exps)
       | laststmt (Break) = S.Atom "break"

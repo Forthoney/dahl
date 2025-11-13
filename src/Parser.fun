@@ -41,13 +41,13 @@ struct
           SOME (DOT, strm) => field (prev, strm)
         | SOME (LBRACK, strm) => index (prev, strm)
         | SOME (COLON, strm) => method (prev, strm)
-        | SOME (LPAREN | STRING _ | LBRACE, strm) =>
+        | SOME (LPAREN | STRING _ | LBRACE, _) =>
           let
             val (args, strm) = funcArgs strm
           in
             loop (PFnCall (Function (prev, args)), strm)
           end
-        | _ => (EPrefix prev, strm)
+        | _ => (prev, strm)
 
       and field (prev, strm) =
         case tokenScan strm of
@@ -142,7 +142,11 @@ struct
         | SOME (TRUE, strm) => (ETrue, strm)
         | SOME (FALSE, strm) => (EFalse, strm)
         | SOME (VARARG, strm) => (EVararg, strm)
-        | _ => prefixExp strm
+        | _ =>
+          let val (pfx, strm) = prefixExp strm
+          in (EPrefix pfx, strm)
+          end
+
     in
       loop lhs
     end
@@ -225,6 +229,24 @@ struct
       | _ => raise Fail "function body does not end with \"end\""
     end
 
+  and globalFunction strm =
+    case Reader.repeat name {between = SOME (consume isDot)} strm of
+      ([], _) => raise Fail "no name for global function"
+    | (names, strm) =>
+      let
+        val (method, strm) =
+          case tokenScan strm of
+            SOME (COLON, strm) =>
+            (case name strm of
+              SOME (method, strm) => (SOME method, strm)
+            | NONE => raise Fail "no method name given")
+          | _ => (NONE, strm)
+
+        val (body, strm) = funcBody strm
+      in
+        (GlobalFunction (names, method, body), strm)
+      end
+
   and localFunction strm =
     case name strm of
       NONE => raise Fail "no name for local function"
@@ -236,23 +258,36 @@ struct
   and stat strm =
     case tokenScan strm of
       NONE => NONE
-    (* | SOME (NAME s, _) => *)
-      (* let *)
-        (* val (names, strm) = Reader.repeat name {sep = SOME (consume isComma)} strm *)
-      (* in *)
-        (* case consume isAssign strm of *)
-          (* NONE => raise Fail "variable declaration must be followed by \"=\"" *)
-        (* | SOME strm => *)
-          (* case Reader.repeat name {sep = SOME (consume isComma)} strm of *)
-            (* ([], _) => raise Fail "variable declaration must be followed by expressions" *)
-          (* | (exps, strm) => SOME (Assign (names, exps), strm) *)
-      (* end *)
+    | SOME (FUNCTION, strm) => SOME (globalFunction strm)
     | SOME (LOCAL, strm) =>
         (case tokenScan strm of
            SOME (NAME s, _) => SOME (localAssign strm)
          | SOME (FUNCTION, strm) => SOME (localFunction strm)
          | _ => raise Fail "invalid local declaration")
-    | _ => NONE
+    | _ =>
+      case prefixExp strm of
+        (PVar v, strm) =>
+        let
+          fun loop acc strm =
+            case tokenScan strm of
+              SOME (COMMA, strm) =>
+              (case prefixExp strm of
+                (PVar v, strm) => loop (v :: acc) strm
+              | _ => raise Fail "invalid..?")
+            | _ => (rev acc, strm)
+          val (vars, strm) = loop [v] strm
+        in
+          case tokenScan strm of
+            SOME (ASSIGN, strm) =>
+            let
+              val (exps, strm) = exprList strm
+            in
+              SOME (Assign (vars, exps), strm)
+            end
+          | _ => raise Fail "unassigned variables"
+        end
+      | (PFnCall fcall, strm) => SOME (FnCall fcall, strm)
+      | _ => raise Fail "unimplemented"
 
   and laststat strm =
     case tokenScan strm of
