@@ -255,80 +255,54 @@ struct
         in (LocalFunction (name, body), strm)
         end
 
-  and stat strm =
-    case tokenScan strm of
-      NONE => NONE
-    | SOME (FUNCTION, strm) => SOME (globalFunction strm)
-    | SOME (LOCAL, strm) =>
-        (case tokenScan strm of
-           SOME (NAME s, _) => SOME (localAssign strm)
-         | SOME (FUNCTION, strm) => SOME (localFunction strm)
-         | _ => raise Fail "invalid local declaration")
-    | _ =>
-      case prefixExp strm of
-        (PVar v, strm) =>
-        let
-          fun loop acc strm =
-            case tokenScan strm of
-              SOME (COMMA, strm) =>
-              (case prefixExp strm of
-                (PVar v, strm) => loop (v :: acc) strm
-              | _ => raise Fail "invalid..?")
-            | _ => (rev acc, strm)
-          val (vars, strm) = loop [v] strm
-        in
-          case tokenScan strm of
-            SOME (ASSIGN, strm) =>
-            let
-              val (exps, strm) = exprList strm
-            in
-              SOME (Assign (vars, exps), strm)
-            end
-          | _ => raise Fail "unassigned variables"
-        end
-      | (PFnCall fcall, strm) => SOME (FnCall fcall, strm)
-      | _ => raise Fail "unimplemented"
-
-  and laststat strm =
-    case tokenScan strm of
-      SOME (BREAK, strm) => SOME (Break, strm)
-    | SOME (RETURN, strm) =>
-      (* (case tokenScan strm of *)
-        (* SOME (SEMICOLON, strm) => SOME (Return [], strm) *)
-      (* | NONE => SOME (Return [], strm) *)
-      (* | SOME _ => *)
-        (* let *)
-          (* fun loop acc strm = *)
-            (* let *)
-              (* val (exp, strm) = expr strm *)
-            (* in *)
-              (* case tokenScan strm of *)
-                (* SOME (SEMICOLON, strm) => SOME (Return (rev acc), strm) *)
-              (* | SOME (COMMA, strm) => loop (exp :: acc) strm *)
-              (* | _ => SOME (Return (rev acc), strm) *)
-            (* end *)
-        (* in *)
-          (* loop [] strm *)
-        (* end) *)
-      SOME (Return [], strm)
-    | _ => NONE
-
   and block strm =
     let
-      fun block' _ =
+      fun loop acc strm =
         let
-          fun terminatedStat strm =
-            case stat strm of
-              SOME (s, strm) => SOME (s, tryConsume isSemicolon strm)
-            | NONE => NONE
-          val (stats, strm) = Reader.repeat terminatedStat {between = NONE} strm
+          fun continue (stat, strm) =
+            case tokenScan strm of
+              SOME (SEMICOLON, strm) => loop (stat :: acc) strm
+            | _ => loop (stat :: acc) strm
         in
-          case laststat strm of
-            SOME (ls, strm) => (Block (stats, SOME ls), strm)
-          | NONE => (Block (stats, NONE), strm)
+          case tokenScan strm of
+            NONE =>
+            if List.null acc then NONE
+            else SOME (Block (rev acc, NONE), strm)
+          | SOME (BREAK, strm) => SOME (Block (rev acc, SOME Break), tryConsume isSemicolon strm)
+          | SOME (RETURN, strm) => SOME (Block (rev acc, SOME (Return [])), tryConsume isSemicolon strm)
+          | SOME (FUNCTION, strm) => continue (globalFunction strm)
+          | SOME (LOCAL, strm) =>
+              (case tokenScan strm of
+                 SOME (NAME s, _) => continue (localAssign strm)
+               | SOME (FUNCTION, strm) => continue (localFunction strm)
+               | _ => raise Fail "invalid local declaration")
+          | _ =>
+            case prefixExp strm of
+              (PVar v, strm) =>
+              let
+                fun loop acc strm =
+                  case tokenScan strm of
+                    SOME (COMMA, strm) =>
+                    (case prefixExp strm of
+                      (PVar v, strm) => loop (v :: acc) strm
+                    | _ => raise Fail "invalid..?")
+                  | _ => (rev acc, strm)
+                val (vars, strm) = loop [v] strm
+              in
+                case tokenScan strm of
+                  SOME (ASSIGN, strm) =>
+                  let
+                    val (exps, strm) = exprList strm
+                  in
+                    continue (Assign (vars, exps), strm)
+                  end
+                | _ => raise Fail "unassigned variables"
+              end
+            | (PFnCall fcall, strm) => continue (FnCall fcall, strm)
+            | _ => raise Fail "unimplemented"
         end
     in
-      Option.compose (block', tokenScan) strm
+      loop [] strm
     end
 
   val scan = block
