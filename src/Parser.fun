@@ -136,6 +136,7 @@ struct
           SOME (NOT, strm) => unary Not strm
         | SOME (MINUS, strm) => unary Neg strm
         | SOME (LENGTH, strm) => unary Length strm
+        | SOME (NUMBER n, strm) => (ENumber n, strm)
         | SOME (STRING s, strm) => (EString s, strm)
         | SOME (NIL, strm) => (ENil, strm)
         | SOME (TRUE, strm) => (ETrue, strm)
@@ -167,7 +168,7 @@ struct
 
   fun localAssign strm =
     let
-      val (names, strm) = Reader.repeat name {sep = SOME (consume isComma)} strm
+      val (names, strm) = Reader.repeat name {between = SOME (consume isComma)} strm
     in
       case tokenScan strm of
         SOME (ASSIGN, strm) =>
@@ -180,7 +181,7 @@ struct
     end
 
   fun funcName strm =
-    case Reader.repeat name {sep = SOME (consume isDot)} strm of
+    case Reader.repeat name {between = SOME (consume isDot)} strm of
       ([], _) => raise Fail "no name given for function declaration"
     | (names, strm) =>
         case tokenScan strm of
@@ -196,7 +197,7 @@ struct
         case tokenScan strm of
           SOME (LPAREN, strm) => 
             (let
-              val (params, strm) = Reader.repeat name {sep = SOME (consume isComma)} strm
+              val (params, strm) = Reader.repeat name {between = SOME (consume isComma)} strm
               val termFail = Fail
                 "function parameter list not properly terminated"
               fun rParenCheck strm =
@@ -257,19 +258,35 @@ struct
     case tokenScan strm of
       SOME (BREAK, strm) => SOME (Break, strm)
     | SOME (RETURN, strm) =>
-      (* let *)
-        (* val (exps, strm) = Reader.repeat exp {sep = SOME (consume isComma)} strm *)
-      (* in *)
-        SOME (Return [], tryConsume isSemicolon strm)
-      (* end *)
+      (* (case tokenScan strm of *)
+        (* SOME (SEMICOLON, strm) => SOME (Return [], strm) *)
+      (* | NONE => SOME (Return [], strm) *)
+      (* | SOME _ => *)
+        (* let *)
+          (* fun loop acc strm = *)
+            (* let *)
+              (* val (exp, strm) = expr strm *)
+            (* in *)
+              (* case tokenScan strm of *)
+                (* SOME (SEMICOLON, strm) => SOME (Return (rev acc), strm) *)
+              (* | SOME (COMMA, strm) => loop (exp :: acc) strm *)
+              (* | _ => SOME (Return (rev acc), strm) *)
+            (* end *)
+        (* in *)
+          (* loop [] strm *)
+        (* end) *)
+      SOME (Return [], strm)
     | _ => NONE
 
   and block strm =
     let
       fun block' _ =
         let
-          val (stats, strm) =
-            Reader.repeat stat {sep = SOME (SOME o tryConsume isSemicolon)} strm
+          fun terminatedStat strm =
+            case stat strm of
+              SOME (s, strm) => SOME (s, tryConsume isSemicolon strm)
+            | NONE => NONE
+          val (stats, strm) = Reader.repeat terminatedStat {between = NONE} strm
         in
           case laststat strm of
             SOME (ls, strm) => (Block (stats, SOME ls), strm)

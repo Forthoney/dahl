@@ -13,9 +13,10 @@ sig
                -> ('a, 'strm) StringCvt.reader
                -> ('a, 'strm) StringCvt.reader
 
+  (* Repeat the scanner until failure with an optional separator between each element *)
   val repeat:
     ('a, 'strm) StringCvt.reader
-    -> {sep: ('strm -> 'strm option) option}
+    -> {between: ('strm -> 'strm option) option}
     (* Unlike a true StringCvt.reader,
        when nothing matches the scanner, this pseudo-reader returns an emtpy list
        instead of returning a NONE option *)

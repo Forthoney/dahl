@@ -14,5 +14,12 @@ in
 	AST.sml
 	Parser.sig
 	Parser.fun
+	Value.sml
+	ann
+		"allowVectorExpsAndPats true"
+	in
+		Bytecode.sml
+		Interpreter.sml
+	end
 end
 end

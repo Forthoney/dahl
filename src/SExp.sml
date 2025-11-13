@@ -7,6 +7,9 @@ struct
   fun namedStruct (name, props) =
     List (Atom name :: props)
 
+  fun symbol sym =
+    Atom ("'" ^ sym)
+
   fun toString (Atom s) = s
-    | toString (List xs) = "(" ^ String.concatWith ", " (map toString xs) ^ ")"
+    | toString (List xs) = "(" ^ String.concatWith " " (map toString xs) ^ ")"
 end

@@ -137,12 +137,12 @@ struct
     fun stmt node =
       case node of
         LocalAssign (names, exps) =>
-          S.namedStruct ("local-assign", [S.List (map S.Atom names), S.List (map exp exps)])
+          S.namedStruct ("local-assign", [S.List (map S.symbol names), S.List (map exp exps)])
       | LocalFunction (name, {params, vararg, block = blk}) =>
         let
           val vararg = if vararg then [S.Atom "<vararg>"] else [] 
         in
-          S.namedStruct ("local-function", [S.List (map S.Atom params @ vararg), block blk])
+          S.namedStruct ("local-function", [S.symbol name, S.List (map S.Atom params @ vararg), block blk])
         end
 
     and laststmt (Return exps) = S.namedStruct ("return", map exp exps)

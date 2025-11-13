@@ -23,8 +23,7 @@ sig
   | UNTIL
   | WHILE
   | NAME of string
-  | INT of int
-  | FLOAT of real
+  | NUMBER of string
   | STRING of string
   (* arithmetic *)
   | PLUS

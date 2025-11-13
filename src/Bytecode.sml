@@ -4,7 +4,7 @@ struct
 
   datatype register = R of int
   datatype constant = K of int
-  datatype immediate = I of int | F of real | B of bool | Nil
+  datatype immediate = F of real | B of bool | Nil
 
   datatype arith_op = Add | Sub | Mul | Div | Pow
   datatype cmp_op = Eq | Lt | Le

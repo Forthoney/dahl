@@ -26,8 +26,7 @@ struct
   | UNTIL
   | WHILE
   | NAME of string
-  | INT of int
-  | FLOAT of real
+  | NUMBER of string
   | STRING of string
   (* arithmetic *)
   | PLUS
@@ -97,8 +96,7 @@ struct
      | UNTIL => "UNTIL"
      | WHILE => "WHILE"
      | NAME s => "NAME(" ^ s ^ ")"
-     | INT i => "INT(" ^ Int.toString i ^ ")"
-     | FLOAT r => "FLOAT(" ^ Real.toString r ^ ")"
+     | NUMBER n => "NUMBER(" ^ n ^ ")"
      | STRING s => "STRING(" ^ String.toString s ^ ")"
      | PLUS => "PLUS"
      | MINUS => "MINUS"
@@ -161,8 +159,8 @@ struct
         let
           val (s, strm') =
             SC.splitl (fn c => c = #"_" orelse Char.isAlphaNum c) input1 strm
-        in
-          ( case s of
+          val tok = 
+            case s of
               "and" => AND
             | "break" => BREAK
             | "do" => DO
@@ -185,42 +183,46 @@ struct
             | "until" => UNTIL
             | "while" => WHILE
             | s => NAME s
-          , strm'
-          )
+        in
+          (tok, strm')
         end
 
-      val dec =
+      fun dec strm =
         let
-          fun loop acc strm =
-            case input1 strm of
-              NONE => (INT acc, strm)
-            | SOME (c, strm') =>
-                if Char.isDigit c then
-                  loop (acc * 10 + Char.ord c - Char.ord #"0") strm'
-                else
-                  (INT acc, strm)
+          val (s, strm) = SC.splitl Char.isDigit input1 strm
         in
-          loop 0
+          (NUMBER s, strm)
         end
+        (* let *)
+          (* fun loop acc strm = *)
+            (* case input1 strm of *)
+              (* NONE => (INT acc, strm) *)
+            (* | SOME (c, strm') => *)
+                (* if Char.isDigit c then *)
+                  (* loop (acc * 10 + Char.ord c - Char.ord #"0") strm' *)
+                (* else *)
+                  (* (INT acc, strm) *)
+        (* in *)
+          (* loop 0 *)
+        (* end *)
 
-      fun hex strm =
+      fun hex prefix strm =
         let
-          fun convert c =
-            Word.andb (Word.fromInt (Char.ord c), 0wxF)
-            + (if c > #"9" then 0wx9 else 0wx0)
+          val (s, strm) = SC.splitl Char.isHexDigit input1 strm
+          (* fun convert c = *)
+            (* Word.andb (Word.fromInt (Char.ord c), 0wxF) *)
+            (* + (if c > #"9" then 0wx9 else 0wx0) *)
 
-          fun loop acc strm =
-            case input1 strm of
-              NONE => (INT (Word.toInt acc), strm)
-            | SOME (c, strm') =>
-                if Char.isHexDigit c then loop (acc * 0wxF + convert c) strm'
-                else (INT (Word.toInt acc), strm)
+          (* fun loop acc strm = *)
+            (* case input1 strm of *)
+              (* NONE => (INT (Word.toInt acc), strm) *)
+            (* | SOME (c, strm') => *)
+                (* if Char.isHexDigit c then loop (acc * 0wxF + convert c) strm' *)
+                (* else (INT (Word.toInt acc), strm) *)
         in
-          case input1 strm of
-            NONE => raise Fail "malformed number"
-          | SOME (c, strm') =>
-              if Char.isHexDigit c then loop (convert c) strm'
-              else raise Fail "malformed number"
+          case s of
+            "" => raise Fail "malformed hex number"
+          | s => (NUMBER (prefix ^ s), strm)
         end
 
       fun shortString delim =
@@ -298,9 +300,9 @@ struct
         | #"0" =>
             SOME
               (case input1 strm of
-                 SOME (#"x", strm') => hex strm'
-               | SOME (#"X", strm') => hex strm'
-               | _ => dec strm)
+                 SOME (#"x", strm') => hex "0x" strm'
+               | SOME (#"X", strm') => hex "0X" strm'
+               | _ => dec oldstrm)
         | c =>
             if Char.isDigit c then SOME (dec oldstrm)
             else if Char.isAlpha c then SOME (name oldstrm)
