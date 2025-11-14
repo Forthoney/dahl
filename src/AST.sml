@@ -68,6 +68,8 @@ struct
   | GlobalFunction of name list * name option * {params: name list, vararg: bool, block: block}
   | LocalAssign of name list * exp list
   | LocalFunction of name * {params: name list, vararg: bool, block: block}
+  | Do of block
+  | While of exp * block
   | FnCall of fn_call
 
   and block =
@@ -121,7 +123,7 @@ struct
 
     and var v =
       case v of
-        VName n => S.Atom n
+        VName n => S.symbol n
       | VIndex (pfx, e) => S.namedStruct ("index", [prefix pfx, exp e])
       | VField (pfx, n) => S.List [S.Atom ("." ^ n), prefix pfx]
 
@@ -140,15 +142,27 @@ struct
       case node of
         LocalAssign (names, exps) =>
           S.namedStruct ("local-assign", [S.List (map S.symbol names), S.List (map exp exps)])
-      | LocalFunction (name, {params, vararg, block = blk}) =>
+      | LocalFunction (name, funcbody) => S.namedStruct ("local-function", S.symbol name :: funcDecl funcbody)
+      | Assign (vars, exps) =>
+          S.namedStruct ("assign", [S.List (map var vars), S.List (map exp exps)])
+      | GlobalFunction (names, method, funcbody) =>
         let
-          val vararg = if vararg then [S.Atom "<vararg>"] else [] 
+          val method =
+            case method of
+              SOME m => ":" ^ m
+            | NONE => ""
         in
-          S.namedStruct ("local-function", [S.symbol name, S.List (map S.Atom params @ vararg), block blk])
+          S.namedStruct ("function", S.Atom (String.concatWith "." names ^ method) :: funcDecl funcbody)
         end
-      | Assign (names, exps) =>
-          S.namedStruct ("assign", [S.List (map var names), S.List (map exp exps)])
+      (* | Do blk => S.namedStruct ("do", block blk) *)
+      (* | While (cond, blk) => S.namedStruct ("while", exp cond :: block blk) *)
      
+    and funcDecl {params, vararg, block = blk} =
+      let
+        val vararg = if vararg then [S.Atom "<vararg>"] else [] 
+      in
+        [S.List (map S.Atom params @ vararg), block blk]
+      end
 
     and laststmt (Return exps) = S.namedStruct ("return", map exp exps)
       | laststmt (Break) = S.Atom "break"

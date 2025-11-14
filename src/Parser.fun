@@ -263,13 +263,55 @@ struct
             case tokenScan strm of
               SOME (SEMICOLON, strm) => loop (stat :: acc) strm
             | _ => loop (stat :: acc) strm
+
+          fun endBlk (laststat, strm) =
+            SOME (Block (rev acc, laststat), tryConsume isSemicolon strm)
+
+          fun assign var0 strm =
+            let
+              fun loop acc strm =
+                case tokenScan strm of
+                  SOME (COMMA, strm) =>
+                  (case prefixExp strm of
+                    (PVar v, strm) => loop (v :: acc) strm
+                  | _ => raise Fail "invalid..?")
+                | _ => (rev acc, strm)
+              val (vars, strm) = loop [var0] strm
+            in
+              case tokenScan strm of
+                SOME (ASSIGN, strm) =>
+                let val (exps, strm) = exprList strm
+                in continue (Assign (vars, exps), strm)
+                end
+              | _ => raise Fail "unassigned variables"
+            end
         in
           case tokenScan strm of
-            NONE =>
-            if List.null acc then NONE
-            else SOME (Block (rev acc, NONE), strm)
-          | SOME (BREAK, strm) => SOME (Block (rev acc, SOME Break), tryConsume isSemicolon strm)
-          | SOME (RETURN, strm) => SOME (Block (rev acc, SOME (Return [])), tryConsume isSemicolon strm)
+            NONE => if List.null acc then NONE else endBlk (NONE, strm)
+          | SOME (BREAK, strm) => endBlk (SOME Break, strm)
+          | SOME (RETURN, strm) => endBlk (SOME (Return []), strm)
+          | SOME (DO, strm) =>
+            (case block strm of
+              NONE => raise Fail "expected <block>"
+            | SOME (blk, strm) =>
+              case tokenScan strm of
+                SOME (END, strm) => continue (Do blk, strm)
+              | _ => raise Fail "expected end")
+          | SOME (WHILE, strm) =>
+            let
+              val (exp, strm) = expr strm
+              val (blk, strm) =
+                case tokenScan strm of
+                  SOME (DO, strm) =>
+                  (case block strm of
+                    SOME v => v
+                  | NONE => raise Fail "expected <block>") 
+                | _ => raise Fail "expected do"
+            in
+              case tokenScan strm of
+                SOME (END, strm) => continue (While (exp, blk), strm)
+              | _ => raise Fail "expected end"
+            end
           | SOME (FUNCTION, strm) => continue (globalFunction strm)
           | SOME (LOCAL, strm) =>
               (case tokenScan strm of
@@ -278,26 +320,7 @@ struct
                | _ => raise Fail "invalid local declaration")
           | _ =>
             case prefixExp strm of
-              (PVar v, strm) =>
-              let
-                fun loop acc strm =
-                  case tokenScan strm of
-                    SOME (COMMA, strm) =>
-                    (case prefixExp strm of
-                      (PVar v, strm) => loop (v :: acc) strm
-                    | _ => raise Fail "invalid..?")
-                  | _ => (rev acc, strm)
-                val (vars, strm) = loop [v] strm
-              in
-                case tokenScan strm of
-                  SOME (ASSIGN, strm) =>
-                  let
-                    val (exps, strm) = exprList strm
-                  in
-                    continue (Assign (vars, exps), strm)
-                  end
-                | _ => raise Fail "unassigned variables"
-              end
+              (PVar v, strm) => assign v strm
             | (PFnCall fcall, strm) => continue (FnCall fcall, strm)
             | _ => raise Fail "unimplemented"
         end

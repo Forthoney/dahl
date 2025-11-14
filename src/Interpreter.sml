@@ -14,6 +14,13 @@ struct
         vars
     )
 
+  fun dump () =
+    Array.appi
+      (fn (i, V.Nil) => print (Int.toString i ^ ": NIL\n")
+        | (i, V.Boolean b) => print (Int.toString i ^ ":" ^ Bool.toString b ^ "\n")
+        | (i, V.Number n) => print (Int.toString i ^ ":" ^ Real.toString n ^ "\n"))
+      vars
+
   fun setReg (R idx) v = Array.update (vars, idx, v)
   fun getReg (R idx) = Array.sub (vars, idx)
   fun setConst (K idx) v = Array.update (vars, idx + 250, v)
@@ -48,6 +55,7 @@ struct
         | Sub => op-
         | Mul => op*
         | Div => op/
+        | Pow => Math.pow
 
       fun fetchNum loc =
         let
@@ -82,13 +90,19 @@ struct
       ((setReg dest o V.Number o op~) src; run)
     end
 
-  val insns =
-    [ Move {dest = R 0, src = R 1}
-    , Load (R 1, Left (F 1.0))
-    , Load (R 2, Left (F 1000.0))
-    , Arith (Add, R 3, Left (R 1), Left (R 2))
-    ]
 
-  (* val _ = run insns *)
-  (* val _ = sparseDump () *)
+  fun run' () =
+    let
+      val insns =
+        [ Move {dest = R 0, src = R 1}
+        , Load (R 1, Left (F 1.0))
+        , Load (R 2, Left (F 1000.0))
+        , Arith (Add, R 3, Left (R 1), Left (R 2))
+        ]
+
+      val insns = 
+        List.tabulate (1000000, fn _ => Load (R 2, Left (F 1000.0))) @ insns
+    in
+      (run insns; dump ())
+    end
 end

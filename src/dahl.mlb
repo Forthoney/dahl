@@ -1,6 +1,11 @@
 local
 	$(SML_LIB)/basis/basis.mlb
 	sources.mlb
+	../deps/medjool/src/sources.mlb
 in
-Main.sml
+	ann
+		"allowOrPats true"
+	in
+		Main.sml
+	end
 end

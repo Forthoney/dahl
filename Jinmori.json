@@ -7,5 +7,6 @@
         "mlton"
       ],
     "dependencies" : [
+        "github.com/Forthoney/medjool@v0.2.2"
       ]
   }
