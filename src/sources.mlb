@@ -2,24 +2,11 @@ local
 	$(SML_LIB)/basis/basis.mlb
 	$(SML_LIB)/basis/mlton.mlb
 in
-ann
-	"allowOrPats true"
-in
-	Reader.sig
-	Reader.sml
-	Lexer.sig
-	Lexer.sml
-	SExp.sig
-	SExp.sml
+	$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
 	AST.sml
-	Parser.sig
-	Parser.fun
-	Value.sml
-	ann
-		"allowVectorExpsAndPats true"
-	in
-		Bytecode.sml
-		Interpreter.sml
-	end
-end
+	Parser.y.sig
+	Parser.y.sml
+	Lexer.lex.sml
+	PrettyPrint.sml
+	Driver.sml
 end
