@@ -1,27 +1,35 @@
 structure Bytecode =
 struct
-  datatype ('a, 'b) either = Left of 'a | Right of 'b
+  type register = int
+  type constant = int
 
-  datatype register = R of int
-  datatype constant = K of int
-  datatype immediate = F of real | B of bool | Nil
+  datatype ('a, 'b) either =
+    A of 'a
+  | B of 'b
 
-  datatype arith_op = Add | Sub | Mul | Div | Pow
-  datatype cmp_op = Eq | Lt | Le
-  datatype un_op = Not | Minus
+  datatype opcode =
+    Move of register * register (* R[A] := R[B] *)
+  | Load of register * constant
+  | Add of register * register
+  | NewTable of register * {arr: int, hash: int}
+  | SetTable of {table: register, key: register, val: register}
 
-  type rk = (register, constant) either
+  fun opToString opc =
+    case opc of
+      MOVE (a, b) => "MOVE " ^ Int.toString a ^ " " ^ Int.toString b
+    | LOADK (a, bx) => "LOADK " ^ Int.toString a ^ " " ^ Int.toString bx
+    | ADD (a, _, _) => "ADD " ^ Int.toString a ^ "..."
+    | CALL (a, b, c) =>
+        "CALL " ^ Int.toString a ^ " " ^ Int.toString b ^ " " ^ Int.toString c
+    | RETURN (a, b) => "RETURN " ^ Int.toString a ^ " " ^ Int.toString b
+    | JMP (sbx) => "JMP " ^ Int.toString sbx
+    | EQ _ => "EQ..."
+    | LT _ => "LT..."
+    | LE _ => "LE..."
+    | TEST _ => "TEST..."
+    | GETGLOBAL (a, bx) => "GETGLOBAL " ^ Int.toString a ^ " " ^ Int.toString bx
+    | CLOSURE (a, bx) => "CLOSURE " ^ Int.toString a ^ " " ^ Int.toString bx
+    | TAILCALL (a, b) => "TAILCALL " ^ Int.toString a ^ " " ^ Int.toString b
+    | _ => "OP..."
 
-  datatype t =
-    Move of {dest: register, src: register}
-  | Load of register * (immediate, constant) either
-  | Arith of arith_op * register * rk * rk
-  | Unary of un_op * register * register
-  | NewTable of register * int * int
-  | SetTable of register * rk * rk
-  | GetTable of register * rk * rk
-  | SetGlobal of register * constant
-  | GetGlobal of register * constant
-  | Compare of cmp_op * int * rk * rk
-  | Return of {start: register, offset: int}
 end

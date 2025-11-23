@@ -27,7 +27,7 @@ struct
   | String of string
   | VarArg
   | Func of func_body
-  | Prefix of prefix_exp (* The bridge between exp and vars/calls *)
+  | Prefix of prefix_exp
   | TableCons of field list
   | BinOp of binop * exp * exp
   | UnOp of unop * exp
