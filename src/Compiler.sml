@@ -1,74 +1,41 @@
 structure Compiler =
 struct
-  open AST
-  open Bytecode
-  structure V = Value
+  structure A = AST
+  structure BC = Bytecode
 
-  fun newReg state =
-    (0, state)
+  datatype entry = String of string | Number of real
+  fun entryToString (String s) = "\"" ^ s ^ "\""
+    | entryToString (Number n) = Real.toString n
 
-  fun addConst (state, v) =
-    (0, state)
+  fun compileExp (exp, acc as (consts as {content, size}, nRegs, ins)) =
+    case exp of
+      A.Nil => (consts, nRegs + 1, BC.LoadNil nRegs :: ins)
+    | A.Bool b => (consts, nRegs + 1, BC.LoadBool (nRegs, b) :: ins)
+    | A.Number n =>
+      ({content = Number n :: content, size = size + 1}, nRegs + 1, BC.Load (nRegs, size) :: ins)
+    | A.String s =>
+      ({content = String s :: content, size = size + 1}, nRegs + 1, BC.Load (nRegs, size) :: ins)
+    | A.UnOp (opr, e) =>
+      let val (consts, nRegs, ins) = compileExp (e, acc)
+      in
+        (consts, nRegs + 1, (BC.fromUnaryOp opr) (nRegs, nRegs - 1) :: ins)
+      end
+    | A.BinOp (opr, l, r) =>
+      let
+        val acc as (_, nRegs, _) = compileExp (l, acc)
+        val (consts, nRegs', ins) = compileExp (r, acc)
+      in
+        (consts, nRegs' + 1, (BC.fromBinaryOp opr) (nRegs', nRegs - 1, nRegs' - 1) :: ins)
+      end
 
-  fun emit (state, ins) =
-    state
+  fun compile (A.Block [A.Return [e]]) =
+    compileExp (e, ({content = [], size = 0}, 0, []))
 
-  fun exp (state, e) =
+  fun toDebug ({content, size}, _, ins) =
     let
-      fun literal v =
-        let
-          val (src, state) = addConst (state, v)
-          val (dest, state) = newReg state
-          val state = emit (state, Load (dest, src))
-        in
-          (dest, state)
-        end
-
-      fun table fields = 
-        let
-          val (tbl, state) = newReg state
-          val state = emit (state, NewTable tbl)
-          fun field (f, {state, seq}) =
-            let
-              val (seq, k, v) =
-                case f of
-                  FieldKey (k, v) => (seq, k, v)
-                | FieldProp (prop, v) => (seq, String prop, v)
-                | FieldSeq v => (seq + 1, Int seq, v)
-              val (k, state) = exp (state, k)
-              val (v, state) = exp (state, v)
-            in
-              {state = emit (state, SetTable ({table = tbl, key = k, val = v})), seq = seq}
-            end
-          val init = {state = state, seq = 0, acc = []}
-          val {state, ...} = List.foldl field init fields 
-        in
-          (tbl, state)
-        end
+      val constTbl =
+        (Array.foldli (fn (i, x, acc) => acc ^ Int.toString i ^ ":" ^ entryToString x ^ "\n") "" o Array.fromList o rev) content
     in
-      case e of
-        Nil => literal V.Nil
-      | Bool b => literal (V.Bool b)
-      | Number n => literal (V.Number n)
-      | String s => literal (V.String s)
-      | BinOp (opr, l, r) =>
-        let
-          val (l, state) = exp (state, l)
-          val (r, state) = exp (state, r)
-          val (dest, state) = newReg state
-          val state = emit (state, Add (l, r))
-        in
-          (dest, state)
-        end
-      | UnOp (opr, v) =>
-        let
-          val (v, state) = exp (state, v)
-          val (dest, state) = newReg state
-          val state = emit (state, Not v)
-        in 
-          (dest, state)
-        end
-      | TableCons fields => table fields
-      | Func ({params, vararg}, block) => raise Fail "unimplemented"
+      constTbl ^ (String.concatWith "\n" o rev o map BC.toString) ins ^ "\n"
     end
 end

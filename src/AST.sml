@@ -74,5 +74,4 @@ struct
 
   and block =
     Block of stmt list
-
 end

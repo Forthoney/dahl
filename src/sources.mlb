@@ -9,4 +9,6 @@ in
 	Lexer.lex.sml
 	PrettyPrint.sml
 	Driver.sml
+	Bytecode.sml
+	Compiler.sml
 end

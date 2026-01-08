@@ -131,6 +131,6 @@ struct
   and blockStr (Block stmts) =
     "Block[\n  " ^ sepBy ",\n  " stmtStr stmts ^ "\n]"
 
-  fun printTree (Block stmts) =
-    print (blockStr (Block stmts) ^ "\n")
+  fun printTree blk =
+    print (blockStr blk ^ "\n")
 end

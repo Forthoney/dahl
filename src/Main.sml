@@ -7,7 +7,7 @@ fun main () =
       | ["-"] => Driver.parseStdIn ()
       | filename :: _ => Driver.parseFile filename
   in
-    PrettyPrint.printTree ast
+    (print o Compiler.toDebug o Compiler.compile) ast
   end
   handle
     Fail msg =>
