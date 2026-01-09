@@ -7,7 +7,7 @@ fun main () =
       | ["-"] => Driver.parseStdIn ()
       | filename :: _ => Driver.parseFile filename
   in
-    (print o Compiler.toDebug o Compiler.compile) ast
+    (print o Compiler.State.toString o #2 o Compiler.compile) ast
   end
   handle
     Fail msg =>

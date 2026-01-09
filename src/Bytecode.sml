@@ -1,45 +1,53 @@
 structure Bytecode =
 struct
-  type register = int
-  type constant = int
+  datatype reg = R of int
+  datatype const = K of int
+  datatype rk = R_ of reg | K_ of const
 
-  datatype opcode =
-    Move of register * register (* R[A] := R[B] *)
-  | LoadNil of register
-  | LoadBool of register * bool
-  | Load of register * constant
-  | Not of register * register
-  | Neg of register * register
-  | Len of register * register
-  | Plus of register * register * register
-  | Minus of register * register * register
-  | Times of register * register * register
-  | Div of register * register * register
-  | Mod of register * register * register
-  | Pow of register * register * register
-  | Concat of register * register * register
-  | Eq of register * register * register
-  | Neq of register * register * register
-  | Lt of register * register * register
-  | Le of register * register * register
-  | Gt of register * register * register
-  | Ge of register * register * register
-  | And of register * register * register
-  | Or of register * register * register
+  datatype t =
+    Move of reg * reg
+  | Load of reg * const
+  | LoadNil of reg
+  | LoadBool of reg * bool
+  | Not of reg * reg
+  | Neg of reg * reg
+  | Len of reg * reg
+  | Plus of reg * rk * rk
+  | Minus of reg * rk * rk
+  | Times of reg * rk * rk
+  | Div of reg * rk * rk
+  | Mod of reg * rk * rk
+  | Pow of reg * rk * rk
+  | Concat of reg * rk * rk
+  | Eq of reg * rk * rk
+  | Neq of reg * rk * rk
+  | Lt of reg * rk * rk
+  | Le of reg * rk * rk
+  | Gt of reg * rk * rk
+  | Ge of reg * rk * rk
+  | And of reg * rk * rk
+  | Or of reg * rk * rk
+  | NewTable of reg * int * int
+  | SetTable of reg * rk * rk
 
   fun toString opc =
     let
+      fun regToString (R r) = "R[" ^ Int.toString r ^ "]"
+      fun constToString (K r) = "K[" ^ Int.toString r ^ "]"
+      fun rkToString (R_ r) = regToString r
+        | rkToString (K_ k) = constToString k
+
       fun binReg name (a, b) =
-        String.concatWith " " [name, Int.toString a, Int.toString b]
+        String.concatWith " " [name, regToString a, regToString b]
 
       fun triReg name (a, b, c) =
-        String.concatWith " " [name, Int.toString a, Int.toString b, Int.toString c]
+        String.concatWith " " [name, regToString a, rkToString b, rkToString c]
     in
       case opc of
         Move ab => binReg "Move" ab
-      | LoadNil r => "LoadNil " ^ Int.toString r
-      | LoadBool (r, b) => String.concatWith " " ["LoadBool", Int.toString r, Bool.toString b]
-      | Load (r, k) => "Load " ^ Int.toString r ^ " K[" ^ Int.toString k ^ "]"
+      | LoadNil r => "LoadNil " ^ regToString r
+      | LoadBool (r, b) => String.concatWith " " ["LoadBool", regToString r, Bool.toString b]
+      | Load (r, k) => String.concatWith " " ["Load", regToString r, constToString k]
       | Not ab => binReg "Not" ab
       | Neg ab => binReg "Neg" ab
       | Len ab => binReg "Len" ab
@@ -58,6 +66,8 @@ struct
       | Ge abc => triReg "Ge" abc
       | And abc => triReg "And" abc
       | Or abc => triReg "Or" abc
+      | NewTable (a, arr, tbl) => String.concatWith " " ["NewTable", regToString a, Int.toString arr, Int.toString tbl]
+      | SetTable abc => triReg "NewTable" abc
     end
 
   fun fromUnaryOp unop =

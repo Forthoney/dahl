@@ -10,5 +10,10 @@ in
 	PrettyPrint.sml
 	Driver.sml
 	Bytecode.sml
+ann
+	"allowRecordPunExps true"
+	"allowOrPats true"
+in
 	Compiler.sml
+end
 end
