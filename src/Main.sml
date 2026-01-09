@@ -1,22 +1,9 @@
-fun main () =
-  let
-    val args = CommandLine.arguments ()
-    val ast =
-      case args of
-        [] => Driver.parseStdIn ()
-      | ["-"] => Driver.parseStdIn ()
-      | filename :: _ => Driver.parseFile filename
-  in
-    (print o Compiler.State.toString o #2 o Compiler.compile) ast
-  end
-  handle
-    Fail msg =>
-      (print ("\nError: " ^ msg ^ "\n"); OS.Process.exit OS.Process.failure)
-  | IO.Io {cause, function, name} =>
-      (print ("\nIO Error: " ^ name ^ "\n"); OS.Process.exit OS.Process.failure)
-  | _ =>
-      ( print "\nAn unknown error occurred.\n"
-      ; OS.Process.exit OS.Process.failure
-      )
+(* val _ = *)
+  (* case CommandLine.arguments () of *)
+    (* [] => run TextIO.stdIn *)
+  (* | [fileName] => run (TextIO.openIn fileName) *)
+  (* | _ => raise Fail "invalid usage" *)
 
-val _ = main ()
+(* val chunk = Chunk.compile () *)
+(* val _ = print (Chunk.disassemble chunk ^ "\n") *)
+(* val _ = ArraySlice.app (print o Value.toString) (Machine.interpret chunk) *)

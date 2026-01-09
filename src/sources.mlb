@@ -2,18 +2,13 @@ local
 	$(SML_LIB)/basis/basis.mlb
 	$(SML_LIB)/basis/mlton.mlb
 in
-	$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
-	AST.sml
-	Parser.y.sig
-	Parser.y.sml
-	Lexer.lex.sml
-	PrettyPrint.sml
-	Driver.sml
-	Bytecode.sml
 ann
-	"allowRecordPunExps true"
 	"allowOrPats true"
 in
-	Compiler.sml
+	Lexer.sml
 end
+	Value.sml
+	Opcode.sml
+	Chunk.sml
+	Machine.sml
 end
