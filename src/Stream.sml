@@ -9,12 +9,22 @@ struct
 
   fun app f = map (ignore o f)
 
+  fun fold f z rdr s =
+    let
+      fun loop acc s =
+        case rdr s of
+          NONE => acc
+        | SOME (x, s) => loop (f (x, acc)) s
+    in
+      loop z s
+    end
+
   fun collect rdr =
     let
-      fun loop acc s = 
+      fun loop acc s =
         case rdr s of
           NONE => rev acc
-        | SOME (v, s) => loop (v :: acc) s
+        | SOME (x, s) => loop (x :: acc) s
     in
       loop []
     end

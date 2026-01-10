@@ -10,6 +10,13 @@ sig
   | DOT | CONCAT | VARARG
   | EQ | LE | LT | GE | GT | NE
   | ASSIGN
+  | STRING of string
+  | AND | BREAK | DO | ELSE | ELSEIF | END
+  | FALSE | FOR | FUNCTION | IF | IN | LOCAL
+  | NIL | NOT | OR | REPEAT | RETURN
+  | THEN | TRUE | UNTIL | WHILE
+  | IDENT of string
+  | NUM of real
 
   val tokenToString : token -> string
 
