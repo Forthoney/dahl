@@ -2,9 +2,12 @@ local
 	$(SML_LIB)/basis/basis.mlb
 	$(SML_LIB)/basis/mlton.mlb
 in
+	Stream.sig
+	Stream.sml
 ann
 	"allowOrPats true"
 in
+	Lexer.sig
 	Lexer.sml
 end
 	Value.sml

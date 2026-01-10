@@ -1,4 +1,4 @@
-structure Lexer =
+structure Lexer :> LEXER =
 struct
   datatype token =
     COMMENT of string
@@ -44,6 +44,8 @@ struct
 
   structure SC = StringCvt
 
+  type 's state = 's * int
+  fun mk s = (s, 0)
   fun run rdr (src, lineno) =
     let
       fun emit (tok, src) = SOME (tok, (src, lineno))
@@ -155,12 +157,3 @@ struct
         | _ => (ERR "~", src))
     end
 end
-
-
-val rdr = Substring.getc
-fun loop state =
-  case Lexer.run rdr state of
-    SOME (v, state) => (print (Lexer.tokenToString v ^ "\n"); loop state)
-  | NONE => ()
-
-val _ = loop (Substring.full "--hi", 0)
