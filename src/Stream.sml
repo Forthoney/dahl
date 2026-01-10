@@ -7,6 +7,14 @@ struct
       NONE => NONE
     | SOME (x, s) => SOME (f x, s)
 
+  fun mapPartial f rdr s =
+    case rdr s of
+      NONE => NONE
+    | SOME (x, s) =>
+      case f x of
+        SOME y => SOME (y, s)
+      | NONE => NONE
+
   fun app f = map (ignore o f)
 
   fun fold f z rdr s =

@@ -2,16 +2,18 @@ local
 	$(SML_LIB)/basis/basis.mlb
 	$(SML_LIB)/basis/mlton.mlb
 in
-	Stream.sig
-	Stream.sml
 ann
 	"allowOrPats true"
+	"allowRecordPunExps true"
 in
+	Stream.sig
+	Stream.sml
 	Lexer.sig
 	Lexer.sml
-end
 	Value.sml
 	Opcode.sml
 	Chunk.sml
 	Machine.sml
+	Compiler.sml
+end
 end

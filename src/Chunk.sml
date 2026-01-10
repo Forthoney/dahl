@@ -23,7 +23,7 @@ struct
       Vector.foldli fmt "" code
     end
 
-  structure State =
+  structure Builder =
   struct
     type t =
       { code : (OP.t * int) list
@@ -44,30 +44,35 @@ struct
       }
 
     fun addNum (n, {code, const = {content, size}, reg}) =
-      (OP.K size, {code = code, const = {content = V.Number n :: content, size = size +1}, reg = reg})
+      (OP.K size, {code, reg, const = {content = V.Number n :: content, size = size + 1}})
 
     fun alloc {code, const, reg} =
-      (OP.R reg, {code = code, const = const, reg = reg + 1})
+      (OP.R reg, {code, const, reg = reg + 1})
 
     val new = {code = [], const = {content = [], size = 0}, reg = 0}
+
+    fun pop {code, const, reg} =
+      (OP.R (reg - 1), {code, const, reg = reg - 1})
+
+    fun peek {code, const, reg} = OP.R (reg - 1)
   end
 
   fun compile () =
     let
-      val st = State.new
+      val st = Builder.new
 
-      val (k, st) = State.addNum (1.5, st)
-      val (l, st) = State.alloc st
-      val st = State.emit ((OP.LOAD (l, k), ~1), st)
+      val (k, st) = Builder.addNum (1.5, st)
+      val (l, st) = Builder.alloc st
+      val st = Builder.emit ((OP.LOAD (l, k), ~1), st)
 
-      val (k, st) = State.addNum (2.5, st)
-      val (r, st) = State.alloc st
-      val st = State.emit ((OP.LOAD (r, k), ~1), st)
+      val (k, st) = Builder.addNum (2.5, st)
+      val (r, st) = Builder.alloc st
+      val st = Builder.emit ((OP.LOAD (r, k), ~1), st)
 
-      val st = State.emit ((OP.ADD (r, l, r), ~1), st)
+      val st = Builder.emit ((OP.ADD (r, l, r), ~1), st)
 
-      val st = State.emit ((OP.RET (OP.R 0, OP.R 2), ~1), st)
+      val st = Builder.emit ((OP.RET (OP.R 0, OP.R 2), ~1), st)
     in
-      State.freeze st
+      Builder.freeze st
     end
 end
