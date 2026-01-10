@@ -1,8 +1,10 @@
 structure Lexer :> LEXER =
 struct
+  exception Unterminated of {inner : string, expected : string, lineno : int}
+  exception Invalid of {found : string, lineno : int}
+
   datatype token =
     COMMENT of string
-  | ERR of string
   | ADD | SUB | MUL | DIV | MOD | POW
   | LEN
   | L_PAREN | R_PAREN | L_BRACK | R_BRACK | L_BRACE | R_BRACE
@@ -22,7 +24,6 @@ struct
     case tok of
       COMMENT s => "COMMENT: " ^ String.toString s
     | STRING s => "STRING: " ^ String.toString s
-    | ERR s => "ERR: " ^ s
     | IDENT name => "IDENT: " ^ name
     | NUM n => "NUM: " ^ Real.toString n
     | ADD => "'+'"
@@ -75,35 +76,45 @@ struct
 
   structure SC = StringCvt
 
+  fun countLines s = 
+    let
+      fun f (c, (count, prev)) =
+        case (c, prev) of
+          (#"\r", _) => (count + 1, c)
+        | (#"\n", #"\r") => (count, c)
+        | (#"\n", _) => (count + 1, c)
+        | (_, _) => (count, c)
+      val (finalCount, _) = Vector.foldl f (0, #" ") s
+    in
+      finalCount
+    end
+
   type 's state = 's * int
   fun mk s = (s, 0)
   fun run rdr (src, lineno) =
     let
       fun emit (tok, src) = SOME (tok, (src, lineno))
 
-      datatype long_bracket = TERM of string | UNTERM of string
-      fun longBracket level =
+      fun longBracket cons level src =
         let
-          fun loop acc src =
+          val acc = ref ""
+          fun loop src =
             let
               val (inner, src) = SC.splitl (fn c => c <> #"]") rdr src
-              val acc = acc ^ inner
-              val lineno = lineno + 0 (* this is wrong *)
+              val _ = acc := !acc ^ inner
+              val SOME (#"]", src) = rdr src
+              val (eqs, src) = SC.splitl (fn c => c = #"=") rdr src
             in
-              case rdr src of
-                SOME (#"]", src) =>
-                let val (eqs, src) = SC.splitl (fn c => c = #"=") rdr src
-                in
-                  if String.size eqs <> level then loop (acc ^ "]" ^ eqs) src
-                  else
-                    case rdr src of
-                      SOME (#"]", src) => (TERM acc, (src, lineno))
-                    | _ => (UNTERM acc, (src, lineno))
+              if String.size eqs <> level then
+                (acc := !acc ^ "]"; loop src)
+              else
+                let val SOME (#"]", src) = rdr src
+                in SOME (cons (!acc), (src, lineno + countLines (!acc)))
                 end
-              | _ => (UNTERM acc, (src, lineno))
             end
         in
-          loop ""
+          loop src
+          handle Bind => raise Unterminated {inner = !acc, expected = "]]", lineno = lineno + countLines (!acc)}
         end
         
       fun lineComment src =
@@ -132,10 +143,7 @@ struct
               val level = String.size eqs
             in
               case rdr src'' of
-                SOME (#"[", src) =>
-                (case longBracket level src of
-                  (TERM cmt, next) => SOME (COMMENT cmt, next)
-                | (UNTERM cmt, next) => SOME (ERR cmt, next))
+                SOME (#"[", src) => longBracket COMMENT level src
               | _ => lineComment src
             end
           | _ => lineComment src)
@@ -152,13 +160,15 @@ struct
       fun literalString double src =
         let
           val pat = if double then "\\\r\n\"" else "\\\r\n'"
+          val delim = if double then "\"" else "'"
           fun loop acc (src, lineno) =
             let
               val (inner, src) = SC.splitl (not o Char.contains pat) rdr src
               val acc = acc ^ inner
             in
               case rdr src of
-                NONE | SOME (#"\r" | #"\n", _) => (ERR acc, (src, lineno))
+                NONE | SOME (#"\r" | #"\n", _) =>
+                raise Unterminated {inner = acc, expected = delim, lineno = lineno}
               | SOME (#"\"" | #"'", src) => (STRING acc, (src, lineno))
               | SOME (#"\\", src) =>
                 (case rdr src of
@@ -173,8 +183,9 @@ struct
                 | SOME (#"'", src) => loop (acc ^ "'") (src, lineno)
                 | SOME (#"\n", src) => loop (acc ^ "\n") (src, lineno + 1)
                 | SOME (c, src) => loop (acc ^ String.str c) (src, lineno)
-                | NONE => (ERR acc, (src, lineno)))
-              | SOME (c, src) => raise Fail (String.str c)
+                | NONE =>
+                  raise Unterminated {inner = acc, expected = delim, lineno = lineno})
+              | SOME (c, src) => raise Fail "unreachable"
             end
         in
           SOME (loop "" (src, lineno))
@@ -221,7 +232,7 @@ struct
         | (#"~", src) =>
           emit (case rdr src of
             SOME (#"=", src) => (NE, src)
-          | _ => (ERR "~", src))
+          | _ => raise Invalid {found = "~", lineno = lineno})
         | (c, _) =>
           if Char.isAlpha c orelse c = #"_" then
             let

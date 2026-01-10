@@ -1,8 +1,10 @@
 signature LEXER =
 sig
+  exception Unterminated of {inner : string, expected : string, lineno : int}
+  exception Invalid of {found : string, lineno : int}
+
   datatype token =
     COMMENT of string
-  | ERR of string
   | ADD | SUB | MUL | DIV | MOD | POW
   | LEN
   | L_PAREN | R_PAREN | L_BRACK | R_BRACK | L_BRACE | R_BRACE
