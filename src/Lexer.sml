@@ -31,6 +31,7 @@ struct
     | DIV => "'/'"
     | MOD => "'%'"
     | POW => "'^'"
+    | LEN => "'#'"
     | L_PAREN => "'('"
     | R_PAREN => "')'"
     | L_BRACK => "'['"
@@ -148,16 +149,17 @@ struct
           | _ => (CONCAT, src))
         | _ => (DOT, src))
 
-      fun literalString src =
+      fun literalString double src =
         let
+          val pat = if double then "\\\r\n\"" else "\\\r\n'"
           fun loop acc (src, lineno) =
             let
-              val (inner, src) = SC.splitl (not o Char.contains "\\\r\n\"") rdr src
+              val (inner, src) = SC.splitl (not o Char.contains pat) rdr src
               val acc = acc ^ inner
             in
               case rdr src of
                 NONE | SOME (#"\r" | #"\n", _) => (ERR acc, (src, lineno))
-              | SOME (#"\"", src) => (STRING acc, (src, lineno))
+              | SOME (#"\"" | #"'", src) => (STRING acc, (src, lineno))
               | SOME (#"\\", src) =>
                 (case rdr src of
                   SOME (#"a", src) => loop (acc ^ "\a") (src, lineno)
@@ -198,7 +200,8 @@ struct
         | (#";", src) => emit (SEMICOLON, src)
         | (#",", src) => emit (COMMA, src)
         | (#".", src) => dots src
-        | (#"\"", src) => literalString src
+        | (#"\"", src) => literalString true src
+        | (#"'", src) => literalString false src
         | (#"\r", src) =>
           run rdr (case rdr src of
             SOME (#"\n", src) => (src, lineno + 1)
@@ -256,7 +259,7 @@ struct
               SOME (r, src) => emit (NUM r, src)
             | NONE => raise Fail "unreachable"
           else
-            raise Fail "invalid..?"
+            raise Fail ("invalid..?" ^ String.str c)
       , rdr) src 
     end
 end
