@@ -12,6 +12,7 @@ in
 	Lexer.sml
 	Value.sml
 	Opcode.sml
+	Chunk.sig
 	Chunk.sml
 	Machine.sml
 	Compiler.sml

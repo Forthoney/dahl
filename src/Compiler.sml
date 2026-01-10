@@ -7,6 +7,7 @@ struct
 
   structure Precedence =
   struct
+    type t = int
     val assign = 1
     val or = 2
     val and' = 3
@@ -29,10 +30,8 @@ struct
   structure Prec = Precedence
   structure CB = Chunk.Builder
 
-  fun run rawStrm =
+  fun run rdr strm =
     let
-      val rdr = Lexer.run (Stream.Char.flatten TextIO.StreamIO.inputLine)
-
       fun unary opcode cs = 
         let
           val (chunk, strm) = parsePrec Prec.unary cs
@@ -45,11 +44,11 @@ struct
       and binary opcode prec (chunk, strm) =
         let
           val l = CB.peek chunk
-          val (chunk, strm) = parsePrec (Prec.ofToken L.ADD) (chunk, strm)
+          val (chunk, strm) = parsePrec (prec + 1) (chunk, strm)
           val (r, chunk) = CB.pop chunk
-          val (dest, chunk) = CB.pop chunk
+          val dest = CB.peek chunk
         in
-          (CB.emit (OP.ADD (dest, l, r), chunk), strm)
+          (CB.emit (opcode (dest, l, r), chunk), strm)
         end
 
       and number n (chunk, strm) =
@@ -100,7 +99,7 @@ struct
                         | L.POW => binary OP.POW
                         | _ => raise Fail "unreachable..?"
                     in
-                      infixFn newPrec (chunk, strm')
+                      loop (infixFn newPrec (chunk, strm'))
                     end
                 end
           in
@@ -108,9 +107,8 @@ struct
           end
 
       and expr cs = parsePrec Prec.assign cs
-
-      val strm = (Lexer.mk o Stream.Char.mk o TextIO.getInstream) rawStrm
+      val (chunk, strm) = expr (CB.new, strm)
     in    
-      expr (CB.new, strm)
+      CB.freeze chunk
     end
 end

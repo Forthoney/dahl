@@ -1,9 +1,10 @@
 fun run rawStrm =
   let
-    val rdr = Stream.Char.flatten TextIO.StreamIO.inputLine
-    val st = (Lexer.mk o Stream.Char.mk o TextIO.getInstream) rawStrm
+    val rdr = Lexer.run (Stream.Char.flatten TextIO.StreamIO.inputLine)
+    val strm = (Lexer.mk o Stream.Char.mk o TextIO.getInstream) rawStrm
+    val chunk = Compiler.run rdr strm
   in
-    Stream.force (Stream.app (fn t => print (Lexer.tokenToString t ^ "\n")) (Lexer.run rdr)) st
+    print (Chunk.disassemble chunk ^ "\n")
   end
 
 val _ =
