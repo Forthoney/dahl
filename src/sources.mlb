@@ -6,6 +6,10 @@ ann
 	"allowOrPats true"
 	"allowRecordPunExps true"
 in
+	Eq.sig
+	Hashable.sig
+	HashTable.sig
+	HashTable.fun
 	Stream.sig
 	Stream.sml
 	Lexer.sig
