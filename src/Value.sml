@@ -6,6 +6,11 @@ struct
   | String of string
   | Number of real
 
+  fun eq (Number l, Number r) = Real.== (l, r)
+    | eq (Boolean l, Boolean r) = l = r
+    | eq (String l, String r) = l = r
+    | eq _ = false
+
   fun toString v =
     case v of
       Nil => "nil"
