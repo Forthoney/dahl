@@ -1,9 +1,9 @@
 functor HashTableFn (
   structure Key : HASHABLE
-
   val maxLoad : real
   val slopFactor : real
-) :> HASH_TABLE =
+) :> HASH_TABLE
+where type k = Key.t =
 struct
   type k = Key.t
 
@@ -21,7 +21,7 @@ struct
 
   type 'v t =
     { live : int ref
-    , tom : int ref
+    , tomb : int ref
     , entries : 'v entry array ref
     }
 
@@ -88,11 +88,11 @@ struct
 
   fun insert (tbl as {live, tomb, entries}) (k, v) =
     let
-      val _ = if atCapacity tbl then resize tbl (autoSize entries)
+      val _ = if atCapacity tbl then resize tbl (autoSize entries) else ()
       val idx =
         case probe (! entries) k of
           Nothing => raise Fail "unreachable: resize ensures nonzero capacity"
-        | Occupied idx => idx
+        | Occupied (idx, _) => idx
         | Available idx =>
           if idx >= 0 then (live := ! live + 1; idx)
           else (live := ! live + 1; tomb := ! tomb - 1; fromTomb idx)
@@ -114,4 +114,7 @@ struct
       ; tomb := ! tomb + 1
       ; SOME v
       )
+
+  fun app f {live, tomb, entries} =
+    Array.app (fn (Live ent) => f ent | _ => ()) (! entries)
 end

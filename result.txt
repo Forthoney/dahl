@@ -1,0 +1,23 @@
+2,204,440 bytes allocated (1,648 bytes by GC)
+                                    function                                       cur 
+--------------------------------------------------------------------------------- -----
+Stream.nest  /home/castlehoney/repos/dahl/src/Stream.sml: 42                      49.8%
+Lexer.run.fn  /home/castlehoney/repos/dahl/src/Lexer.sml: 195                     11.8%
+_res_Sequence.make  $(SML_LIB)/basis/arrays-and-vectors/sequence.fun: 461         11.7%
+run.fn  /home/castlehoney/repos/dahl/src/Main.sml: 6                               7.2%
+_res_Sequence.append  $(SML_LIB)/basis/arrays-and-vectors/sequence.fun: 475        5.6%
+Lexer.run.lineComment  /home/castlehoney/repos/dahl/src/Lexer.sml: 120             3.9%
+Lexer.tokenToString  /home/castlehoney/repos/dahl/src/Lexer.sml: 23                3.1%
+Stream.map  /home/castlehoney/repos/dahl/src/Stream.sml: 5                         2.6%
+Lexer.run.literalString.loop  /home/castlehoney/repos/dahl/src/Lexer.sml: 164      1.5%
+<main>                                                                             1.1%
+_res_Sequence.concat  $(SML_LIB)/basis/arrays-and-vectors/sequence.fun: 476        0.6%
+_res_Integer.fmt  $(SML_LIB)/basis/integer/int.sml: 74                             0.3%
+_res_Sequence.Slice.concat  $(SML_LIB)/basis/arrays-and-vectors/sequence.fun: 266  0.3%
+IEEEReal.scan.done  $(SML_LIB)/basis/real/IEEE-real.sml: 225                       0.2%
+IEEEReal.scan.digitStar.done  $(SML_LIB)/basis/real/IEEE-real.sml: 136             0.1%
+IEEEReal.scan.normal'  $(SML_LIB)/basis/real/IEEE-real.sml: 276                    0.1%
+<gc>                                                                               0.1%
+run  /home/castlehoney/repos/dahl/src/Main.sml: 1                                  0.0%
+IEEEReal.scan.digitStar  $(SML_LIB)/basis/real/IEEE-real.sml: 134                  0.0%
+Stream.Char.mk  /home/castlehoney/repos/dahl/src/Stream.sml: 53                    0.0%

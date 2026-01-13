@@ -1,4 +1,0 @@
-structure Interner =
-struct
-  
-end

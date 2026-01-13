@@ -56,7 +56,15 @@ struct
 
       and number n (chunk, strm) =
         let
-          val (idx, chunk) = CB.addNum (n, chunk)
+          val (idx, chunk) = CB.addConst (Constant.NUM n, chunk)
+          val (reg, chunk) = CB.alloc chunk
+        in
+          (CB.emit (OP.LOAD (reg, idx), chunk), strm)
+        end
+
+      and string s (chunk, strm) =
+        let
+          val (idx, chunk) = CB.addConst (Constant.STR s , chunk)
           val (reg, chunk) = CB.alloc chunk
         in
           (CB.emit (OP.LOAD (reg, idx), chunk), strm)

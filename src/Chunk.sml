@@ -2,13 +2,21 @@ structure Chunk : CHUNK =
 struct
   structure OP = Opcode
   structure V = Value
+
+  structure HT = HashTableFn (
+    structure Key = Constant.Hashable
+    val maxLoad = 0.7
+    val slopFactor = 2.0
+  )
+  structure IT = InternerFn(HT)
+  
   type t =
     { code : OP.t vector
-    , const : Value.t vector
+    , consts : Constant.t vector
     , line : int vector
     }
 
-  fun disassemble {code, const, line} =
+  fun disassemble {code, consts, line} =
     let
       fun fmt (0, x, acc) = Int.toString (Vector.sub (line, 0)) ^ "\t" ^ OP.disassemble x
         | fmt (i, x, acc) =
@@ -27,32 +35,34 @@ struct
   struct
     type obj =
       { code : (OP.t * int) list
-      , const : {content : Value.t list, size : int}
+      , consts : IT.t
       , reg : int
       }
-    val new = {code = [], const = {content = [], size = 0}, reg = 0}
+    val new = {code = [], consts = IT.new (), reg = 0}
 
-    fun freeze ({code, const = {content, size}, reg} : obj) =
+    fun freeze ({code, consts, reg} : obj) =
       { code = (Vector.fromList o map #1 o rev) code
-      , const = Vector.fromList (rev content)
+      , consts = IT.freeze consts
       , line = (Vector.fromList o map #2 o rev) code
       }
 
-    fun emit (opcode, {code, const, reg}) =
+    fun emit (opcode, {code, consts, reg}) =
       { code = (opcode, ~1)::code
-      , const = const
+      , consts = consts
       , reg = reg
       }
 
-    fun addNum (n, {code, const = {content, size}, reg}) =
-      (OP.K size, {code, reg, const = {content = V.Number n :: content, size = size + 1}})
+    fun addConst (k, {code, consts, reg}) =
+      let val id = IT.get consts k
+      in (OP.K id, {code, reg, consts})
+      end
 
-    fun alloc {code, const, reg} =
-      (OP.R reg, {code, const, reg = reg + 1})
+    fun alloc {code, consts, reg} =
+      (OP.R reg, {code, consts, reg = reg + 1})
 
-    fun pop {code, const, reg} =
-      (OP.R (reg - 1), {code, const, reg = reg - 1})
+    fun pop {code, consts, reg} =
+      (OP.R (reg - 1), {code, consts, reg = reg - 1})
 
-    fun peek {code, const, reg} = OP.R (reg - 1)
+    fun peek {code, consts, reg} = OP.R (reg - 1)
   end
 end
