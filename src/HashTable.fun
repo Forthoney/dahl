@@ -1,9 +1,9 @@
-functor HashTable (
+functor HashTableFn (
   structure Key : HASHABLE
 
   val maxLoad : real
   val slopFactor : real
-) : HASH_TABLE =
+) :> HASH_TABLE =
 struct
   type k = Key.t
 

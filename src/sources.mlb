@@ -8,6 +8,7 @@ ann
 in
 	Eq.sig
 	Hashable.sig
+	FNV.sml
 	HashTable.sig
 	HashTable.fun
 	Stream.sig

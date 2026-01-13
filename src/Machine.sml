@@ -6,6 +6,12 @@ struct
   structure AS = ArraySlice
   structure OP = Opcode
 
+  structure HT = HashTableFn (
+    structure Key = FNV.String
+    val maxLoad = 0.8
+    val slopFactor = 2.0
+  )
+
   exception Type
   
   fun interpret chunk =

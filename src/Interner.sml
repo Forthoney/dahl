@@ -1,0 +1,3 @@
+structure Interner =
+struct
+end
