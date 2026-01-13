@@ -12,5 +12,8 @@ struct
     fun hash (STR s) = FNV.String.hash s
       | hash (NUM n) = Word64.fromInt (Real.round n)
   end
+
+  fun toValue (STR s) = Value.String s
+    | toValue (NUM n) = Value.Number n
 end
 

@@ -48,11 +48,11 @@ struct
         fun loop tomb idx =
           case Array.sub (entries, idx) of
             Tombstone =>
-            loop (if tomb = 0 then toTomb idx else tomb) (idx + 1 mod len)
+            loop (if tomb = 0 then toTomb idx else tomb) ((idx + 1) mod len)
           | Empty => Available (if tomb = 0 then idx else tomb)
           | Live (k', v) =>
             if Key.eq (k', k) then Occupied (idx, v)
-            else loop tomb (idx + 1 mod len)
+            else loop tomb ((idx + 1) mod len)
       in
         loop 0 (hash k mod len)
       end

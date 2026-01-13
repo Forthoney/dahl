@@ -1,10 +1,17 @@
 signature ID_MAP =
 sig
-  type id = int
-  type v
   type t
+  type v
+  type id
 
-  val new : unit -> t
-  val get : t -> v -> id
-  val freeze : t -> v vector
+  structure Builder :
+  sig
+    type obj
+    val new : unit -> obj
+    val get : obj -> v -> id
+    val freeze : obj -> t
+  end
+
+  val get : t -> id -> v
+  val idToString : id -> string
 end

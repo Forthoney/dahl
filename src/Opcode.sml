@@ -1,8 +1,8 @@
 structure Opcode =
 struct
   datatype reg = R of int
-  datatype const = K of int
-
+  type const = ConstTable.id
+  
   datatype t =
     RET of reg * reg
   | LOAD_NIL of reg
@@ -23,11 +23,13 @@ struct
   | LT of reg * reg * reg
   | GE of reg * reg * reg
   | GT of reg * reg * reg
+  | SET_GLOBAL of reg * const
+  | GET_GLOBAL of reg * const
 
   fun disassemble c =
     let
       fun reg (R r) = "R[" ^ Int.toString r ^ "]"
-      fun const (K k) = "K[" ^ Int.toString k ^ "]"
+      fun const k = "K[" ^ ConstTable.idToString k ^ "]"
       fun unary name (d, s) = [name, reg d, reg s]
       fun binary name (d, l, r) = [name, reg d, reg l, reg r]
       val fmt = 
@@ -51,6 +53,8 @@ struct
         | GT opr => binary "GT" opr
         | EQ opr => binary "EQ" opr
         | NE opr => binary "NE" opr
+        | SET_GLOBAL (from, name) => ["SET_GLOBAL", reg from, const name]
+        | GET_GLOBAL (to, name) => ["GET_GLOBAL", reg to, const name]
     in
       String.concatWith "\t" fmt
     end

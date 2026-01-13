@@ -53,16 +53,36 @@ struct
         end
 
       and grouping cs =
-        let val (chunk, strm) = expr cs
+        let val (chunk, strm) = exp cs
         in
           case rdr strm of
             SOME (L.R_PAREN, strm) => (chunk, strm)
           | _ => raise Parse
         end
 
+      and variable name cs =
+        namedVariable name cs
+
+      and namedVariable name (chunk, strm) =
+        let
+          val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+        in
+          case rdr strm of
+            SOME (L.ASSIGN, strm) =>
+            let val (chunk, strm) = exp (chunk, strm)
+            in
+              (CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk), strm)
+            end
+          | _ =>
+            let val (reg, chunk) = CB.alloc chunk
+            in
+              (CB.emit (OP.GET_GLOBAL (reg, id), chunk), strm)
+            end
+        end
+
       and parsePrec prec (chunk, strm) =
         case rdr strm of
-          NONE => raise Fail "expect expression"
+          NONE => raise Fail "expect expession"
         | SOME (token, strm) =>
           let
             val prefixFn =
@@ -75,7 +95,8 @@ struct
               | L.NIL => literal OP.LOAD_NIL
               | L.TRUE => literal OP.LOAD_TRUE
               | L.FALSE => literal OP.LOAD_FALSE
-              | _ => raise Fail "expect expression" 
+              | L.IDENT name => variable name
+              | _ => raise Fail "expect expession" 
             val cs = prefixFn (chunk, strm)
 
             fun loop (chunk, strm) =
@@ -110,8 +131,30 @@ struct
             loop cs
           end
 
-      and expr cs = parsePrec Prec.assign cs
-      val (chunk, strm) = expr (CB.new, strm)
+      and exp cs = parsePrec Prec.assign cs
+
+      (* and varDecl (chunk, strm) = *)
+        (* case rdr strm of *)
+          (* SOME (L.IDENT name, strm) => *)
+            (* let *)
+              (* val (id, chunk) = CB.addConst (Constant.STR name, chunk) *)
+              (* val (chunk, strm) = *)
+                (* case rdr strm of *)
+                  (* SOME (L.ASSIGN, strm) => exp (chunk, strm) *)
+                (* | _ => literal OP.LOAD_NIL (chunk, strm) *)
+              (* val chunk = CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk) *)
+              (* val (_, chunk) = CB.pop chunk *)
+            (* in *)
+              (* (chunk, strm) *)
+            (* end *)
+        (* | _ => raise Fail "expect name" *)
+
+      (* and stat (chunk, strm) = *)
+        (* case rdr strm of *)
+          (* NONE => raise Fail "expect statement" *)
+        (* | SOME (L.LOCAL, strm) => varDecl (chunk, strm) *)
+      
+      val (chunk, strm) = exp (CB.new, strm)
     in    
       CB.freeze chunk
     end

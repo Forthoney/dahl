@@ -2,6 +2,7 @@ signature CHUNK =
 sig
   type t
   val disassemble : t -> string
+  val getConst : t * Opcode.const -> Constant.t
 
   structure Builder :
   sig

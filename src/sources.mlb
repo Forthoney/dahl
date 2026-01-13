@@ -15,10 +15,11 @@ in
 	HashTable.fun
 	IDMap.sig
 	IDMap.fun
+	Value.sml
 	Constant.sml
+	ConstTable.sml
 	Lexer.sig
 	Lexer.sml
-	Value.sml
 	Opcode.sml
 	Chunk.sig
 	Chunk.sml
