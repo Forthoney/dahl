@@ -3,13 +3,6 @@ struct
   structure OP = Opcode
   structure V = Value
 
-  structure HT = HashTableFn (
-    structure Key = Constant.Hashable
-    val maxLoad = 0.7
-    val slopFactor = 2.0
-  )
-  structure IDMap = IDMapFn(HT)
-  
   type t =
     { code : OP.t vector
     , consts : Constant.t vector
@@ -33,6 +26,13 @@ struct
 
   structure Builder =
   struct
+    structure HT = HashTableFn (
+      structure Key = Constant.Hashable
+      val maxLoad = 0.7
+      val slopFactor = 2.0
+    )
+    structure IDMap = IDMapFn(HT)
+
     type obj =
       { code : (OP.t * int) list
       , consts : IDMap.t
