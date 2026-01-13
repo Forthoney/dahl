@@ -60,15 +60,15 @@ struct
           | _ => raise Parse
         end
 
-      and variable name cs =
-        namedVariable name cs
+      and variable canAssign name cs =
+        namedVariable canAssign name cs
 
-      and namedVariable name (chunk, strm) =
+      and namedVariable canAssign name (chunk, strm) =
         let
           val (id, chunk) = CB.addConst (Constant.STR name, chunk)
         in
-          case rdr strm of
-            SOME (L.ASSIGN, strm) =>
+          case (canAssign, rdr strm) of
+            (true, SOME (L.ASSIGN, strm)) =>
             let val (chunk, strm) = exp (chunk, strm)
             in
               (CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk), strm)
@@ -85,6 +85,7 @@ struct
           NONE => raise Fail "expect expession"
         | SOME (token, strm) =>
           let
+            val canAssign = prec <= Prec.assign
             val prefixFn =
               case token of
                 L.L_PAREN => grouping
@@ -95,7 +96,7 @@ struct
               | L.NIL => literal OP.LOAD_NIL
               | L.TRUE => literal OP.LOAD_TRUE
               | L.FALSE => literal OP.LOAD_FALSE
-              | L.IDENT name => variable name
+              | L.IDENT name => variable canAssign name
               | _ => raise Fail "expect expession" 
             val cs = prefixFn (chunk, strm)
 
@@ -127,8 +128,11 @@ struct
                       loop (infixFn newPrec (chunk, strm'))
                     end
                 end
+            val (chunk, strm) = loop cs
           in
-            loop cs
+            case (canAssign, rdr strm) of
+              (true, SOME (L.ASSIGN, _)) => raise Fail "invalid assignment target"
+            | _ => (chunk, strm)
           end
 
       and exp cs = parsePrec Prec.assign cs
