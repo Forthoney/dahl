@@ -19,15 +19,23 @@ struct
   | Available of int 
   | Nothing (* there is nothing in the table *)
 
-  type 'v t = {count : int ref, entries : 'v entry array ref}
+  type 'v t =
+    { live : int ref
+    , tom : int ref
+    , entries : 'v entry array ref
+    }
 
   val hash = Word64.toIntX o Key.hash
 
-  fun new capacity = {count = ref 0, entries = ref (Array.array (capacity, Empty))}
+  fun new capacity =
+    { live = ref 0
+    , tomb = ref 0
+    , entries = ref (Array.array (capacity, Empty))
+    }
   fun empty () = new 0
 
-  fun atCapacity {count, entries} =
-    Real.fromInt (! count + 1) > Real.fromInt (Array.length (! entries)) * maxLoad
+  fun atCapacity {live, tomb, entries} =
+    Real.fromInt (! live + ! tomb + 1) > Real.fromInt (Array.length (! entries)) * maxLoad
 
   fun toTomb idx = ~idx - 1
   fun fromTomb idx = ~(idx + 1)
@@ -54,46 +62,56 @@ struct
       fun rehash (Empty | Tombstone) = ()
         | rehash (Live (k, v)) =
           case probe dest k of
-            Occupied (idx, _) => Array.update (dest, idx, Live (k, v))
           (* no deletions have happened yet, so no tombstones *)
-          | Available idx => Array.update (dest, idx, Live (k, v))
-          | Nothing => raise Size
+            Available idx => Array.update (dest, idx, Live (k, v))
+          | Nothing => raise Fail "unreachable: dest is of nonzero size"
+          | Occupied (idx, _) => raise Fail "unreachable: each key is rehashed once"
     in
       Array.app rehash src
     end
     
-  fun resize {count, entries} capacity =
+  fun count {live, tomb, entries} = ! live
+
+  fun resize {live, tomb, entries} capacity =
+    if capacity >= ! live then
+      let val entries' = Array.array (capacity, Empty)
+      in
+        ( copy (! entries, entries')
+        ; entries := entries'
+        ; tomb := 0
+        )
+      end
+    else raise Size
+
+  fun autoSize entries =
+    Real.ceil (Real.fromInt (Array.length (! entries)) * slopFactor)
+
+  fun insert (tbl as {live, tomb, entries}) (k, v) =
     let
-      val _ = if capacity < ! count then raise Size else ()
-      val entries' = Array.array (capacity, Empty)
+      val _ = if atCapacity tbl then resize tbl (autoSize entries)
+      val idx =
+        case probe (! entries) k of
+          Nothing => raise Fail "unreachable: resize ensures nonzero capacity"
+        | Occupied idx => idx
+        | Available idx =>
+          if idx >= 0 then (live := ! live + 1; idx)
+          else (live := ! live + 1; tomb := ! tomb - 1; fromTomb idx)
     in
-      (copy (! entries, entries'); entries := entries')
+      Array.update (! entries, idx, Live (k, v))
     end
 
-  fun insert (tbl as {count, entries}) (k, v) =
-    ( if atCapacity tbl then
-        resize tbl (Real.ceil (Real.fromInt (Array.length (! entries)) * slopFactor))
-      else ()
-    ; case probe (! entries) k of
-        Nothing => raise Fail "unreachable"
-      | Occupied (idx, _) => Array.update (! entries, idx, Live (k, v))
-      | Available idx =>
-        if idx >= 0 then
-          (Array.update (! entries, idx, Live (k, v)); count := ! count + 1)
-        else
-          Array.update (! entries, fromTomb idx, Live (k, v))
-    )
-
-  fun get {count, entries} k =
+  fun get {live, tomb, entries} k =
     case probe (! entries) k of
       Nothing | Available _ => NONE
     | Occupied (_, v) => SOME v
 
-  fun take {count, entries} k =
+  fun take {live, tomb, entries} k =
     case probe (! entries) k of
       Nothing | Available _ => NONE
-    | Occupied (idx, v) => (Array.update (! entries, idx, Tombstone); SOME v)
-
-  fun count {count, entries} =
-    Array.foldl (fn (Live _, acc) => acc + 1 | (_, acc) => acc) 0 (! entries)
+    | Occupied (idx, v) =>
+      ( Array.update (! entries, idx, Tombstone)
+      ; live := ! live - 1
+      ; tomb := ! tomb + 1
+      ; SOME v
+      )
 end

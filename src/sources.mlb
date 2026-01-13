@@ -11,6 +11,8 @@ in
 	FNV.sml
 	HashTable.sig
 	HashTable.fun
+	Interner.sig
+	Interner.fun
 	Stream.sig
 	Stream.sml
 	Lexer.sig

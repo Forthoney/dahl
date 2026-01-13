@@ -62,9 +62,6 @@ struct
           (CB.emit (OP.LOAD (reg, idx), chunk), strm)
         end
 
-      and string s (chunk, strm) =
-        ()
-
       and literal opcode (chunk, strm) =
         let
           val (reg, chunk) = CB.alloc chunk
