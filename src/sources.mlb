@@ -9,13 +9,13 @@ in
 	Eq.sig
 	Hashable.sig
 	FNV.sml
-	HashTable.sig
-	HashTable.fun
-	Interner.sig
-	Interner.fun
-	Constant.sml
 	Stream.sig
 	Stream.sml
+	HashTable.sig
+	HashTable.fun
+	IDMap.sig
+	IDMap.fun
+	Constant.sml
 	Lexer.sig
 	Lexer.sml
 	Value.sml
@@ -23,6 +23,7 @@ in
 	Chunk.sig
 	Chunk.sml
 	Machine.sml
+	Precedence.sml
 	Compiler.sml
 end
 end

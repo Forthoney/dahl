@@ -1,8 +1,12 @@
-functor InternerFn (HT : HASH_TABLE) :> INTERNER where type v = HT.k =
+functor IDMapFn (HT : HASH_TABLE) :> ID_MAP
+where type v = HT.k =
 struct
+  type id = int
   type v = HT.k
-  type t = int HT.t
+  type t = id HT.t
+
   fun new () = HT.new 100
+
   fun get tbl v =
     case HT.get tbl v of
       SOME id => id

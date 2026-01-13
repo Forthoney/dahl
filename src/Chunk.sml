@@ -8,7 +8,7 @@ struct
     val maxLoad = 0.7
     val slopFactor = 2.0
   )
-  structure IT = InternerFn(HT)
+  structure IDMap = IDMapFn(HT)
   
   type t =
     { code : OP.t vector
@@ -35,14 +35,14 @@ struct
   struct
     type obj =
       { code : (OP.t * int) list
-      , consts : IT.t
+      , consts : IDMap.t
       , reg : int
       }
-    val new = {code = [], consts = IT.new (), reg = 0}
+    val new = {code = [], consts = IDMap.new (), reg = 0}
 
     fun freeze ({code, consts, reg} : obj) =
       { code = (Vector.fromList o map #1 o rev) code
-      , consts = IT.freeze consts
+      , consts = IDMap.freeze consts
       , line = (Vector.fromList o map #2 o rev) code
       }
 
@@ -53,7 +53,7 @@ struct
       }
 
     fun addConst (k, {code, consts, reg}) =
-      let val id = IT.get consts k
+      let val id = IDMap.get consts k
       in (OP.K id, {code, reg, consts})
       end
 
