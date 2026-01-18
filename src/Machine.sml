@@ -13,7 +13,35 @@ struct
   )
 
   exception Type
-  
+
+  type state =
+    { regs : V.t array
+    , globals : Value.t G.t
+    }
+
+  fun dump regs =
+    let
+      fun toString (i, v) = Int.toString i ^ ":\t" ^ V.toString v
+      fun nilSeq (from, to) =
+        if from = to then toString (from, V.Nil)
+        else
+          Int.toString from ^ "-" ^ Int.toString to ^ ":\t" ^ V.toString V.Nil
+
+      fun process (i, v, acc as (frags, nils)) =
+        case (v, nils) of
+          (V.Nil, NONE) => (frags, SOME i)
+        | (V.Nil, _) => acc
+        | (v, NONE) => (toString (i, v) :: frags, NONE)
+        | (v, SOME j) => (toString (i, v) :: nilSeq (i + 1, j) :: frags, NONE)
+
+      val frags = 
+        case Array.foldri process ([], NONE) regs of
+          (frags, NONE) => frags
+        | (frags, SOME j) => nilSeq (0, j) :: frags
+    in
+      String.concatWith "\n" frags
+    end
+
   fun interpret chunk =
     let
       val globals = G.new 100
@@ -89,9 +117,10 @@ struct
             ( set (dest, (V.Boolean o not o V.eq) (get l, get r))
             ; loop (chunk, ip + 1)
             )
-          | OP.RET (OP.R from, OP.R to) => AS.slice (regs, from, SOME to)
+          | OP.RET (OP.R from, OP.R to) => regs
         end
     in
       loop (chunk, 0)
+      handle Subscript => regs
     end
 end

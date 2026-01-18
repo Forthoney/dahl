@@ -46,11 +46,11 @@ struct
     | len =>
       let
         fun loop tomb idx =
-          case Array.sub (entries, idx) of
-            Tombstone =>
-            loop (if tomb = 0 then toTomb idx else tomb) ((idx + 1) mod len)
-          | Empty => Available (if tomb = 0 then idx else tomb)
-          | Live (k', v) =>
+          case (tomb, Array.sub (entries, idx)) of
+            (0, Tombstone) => loop (toTomb idx) ((idx + 1) mod len)
+          | (0, Empty) => Available idx
+          | (_, Tombstone | Empty) => Available tomb
+          | (_, Live (k', v)) =>
             if Key.eq (k', k) then Occupied (idx, v)
             else loop tomb ((idx + 1) mod len)
       in

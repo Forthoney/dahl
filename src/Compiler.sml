@@ -137,28 +137,54 @@ struct
 
       and exp cs = parsePrec Prec.assign cs
 
-      (* and varDecl (chunk, strm) = *)
-        (* case rdr strm of *)
-          (* SOME (L.IDENT name, strm) => *)
-            (* let *)
-              (* val (id, chunk) = CB.addConst (Constant.STR name, chunk) *)
-              (* val (chunk, strm) = *)
-                (* case rdr strm of *)
-                  (* SOME (L.ASSIGN, strm) => exp (chunk, strm) *)
-                (* | _ => literal OP.LOAD_NIL (chunk, strm) *)
-              (* val chunk = CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk) *)
-              (* val (_, chunk) = CB.pop chunk *)
-            (* in *)
-              (* (chunk, strm) *)
-            (* end *)
-        (* | _ => raise Fail "expect name" *)
+      and varDecl vars (chunk, strm) =
+        case rdr strm of
+          SOME (L.COMMA, strm) =>
+            (case rdr strm of
+              SOME (L.IDENT name, strm) =>
+              let val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+              in varDecl (id::vars) (chunk, strm)
+              end
+            | _ => raise Fail "expect name")
+        | SOME (L.ASSIGN, strm) => varAssign (rev vars) (chunk, strm)
+        | _ => raise Fail "expect assignment symbol"
 
-      (* and stat (chunk, strm) = *)
-        (* case rdr strm of *)
-          (* NONE => raise Fail "expect statement" *)
-        (* | SOME (L.LOCAL, strm) => varDecl (chunk, strm) *)
+      (* varlist will be nonempty *)
+      and varAssign (id::vars) cs =
+        let
+          val (chunk, strm) = exp cs
+          val top = CB.peek chunk
+          val chunk = CB.emit (OP.SET_GLOBAL (top, id), chunk)
+
+          fun loop vars (chunk, strm) =
+            case rdr strm of
+              SOME (L.COMMA, strm) =>
+              let
+                val (chunk, strm) = exp (chunk, strm)
+              in
+                case vars of
+                  [] => loop [] (chunk, strm)
+                | id::vars =>
+                  let val chunk = CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk)
+                  in
+                    loop vars (chunk, strm)
+                  end
+              end
+            | _ => (chunk, strm)
+        in
+          loop vars (chunk, strm)
+        end
+
+      and stat (chunk, strm) =
+        case rdr strm of
+          NONE => raise Fail "expect statement"
+        | SOME (L.IDENT name, strm) =>
+          let val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+          in varDecl [id] (chunk, strm)
+          end
+        | _ => raise Fail "unimplemented"
       
-      val (chunk, strm) = exp (CB.new, strm)
+      val (chunk, strm) = stat (CB.new, strm)
     in    
       CB.freeze chunk
     end

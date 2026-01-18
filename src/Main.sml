@@ -4,7 +4,9 @@ fun run rawStrm =
     val strm = (Lexer.mk o Stream.Char.mk o TextIO.getInstream) rawStrm
     val chunk = Compiler.run rdr strm
   in
-    print (Chunk.disassemble chunk ^ "\n")
+    ( print (Chunk.disassemble chunk ^ "\n")
+    ; print (Machine.dump (Machine.interpret chunk) ^ "\n")
+    )
   end
 
 val _ =
