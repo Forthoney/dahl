@@ -5,6 +5,7 @@ struct
   
   datatype t =
     RET of reg * reg
+  | MOV of reg * reg
   | LOAD_NIL of reg
   | LOAD_TRUE of reg
   | LOAD_FALSE of reg
@@ -39,6 +40,7 @@ struct
       val fmt = 
         case c of
           RET (from, to) => ["RET", reg from, reg to]
+        | MOV (dest, from) => ["MOV", reg dest, reg from]
         | LOAD (dest, from) => ["LOAD", reg dest, const from]
         | LOAD_NIL dest => ["LOAD_NIL", reg dest]
         | LOAD_TRUE dest => ["LOAD_TRUE", reg dest]

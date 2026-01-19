@@ -91,6 +91,7 @@ struct
 
   type 's state = 's * int
   fun mk s = (s, 0)
+  fun line (_, lineno) = lineno
   fun run rdr (src, lineno) =
     let
       fun emit (tok, src) = SOME (tok, (src, lineno))

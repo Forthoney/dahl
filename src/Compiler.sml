@@ -10,6 +10,8 @@ struct
 
   fun run rdr strm =
     let
+      fun lineOf strm = Lexer.line strm + 1
+
       fun prefixFn canAssign token =
         case token of
           L.L_PAREN => grouping
@@ -45,7 +47,7 @@ struct
           val (operand, chunk) = CB.pop chunk
           val (dest, chunk) = CB.alloc chunk
         in
-          (scope, CB.emit (opcode (dest, operand), chunk), strm)
+          (scope, CB.emit (opcode (dest, operand), lineOf strm, chunk), strm)
         end
 
       and binary opcode prec st =
@@ -55,7 +57,7 @@ struct
           val (l, chunk) = CB.pop chunk
           val (dest, chunk) = CB.alloc chunk
         in
-          (scope, CB.emit (opcode (dest, l, r), chunk), strm)
+          (scope, CB.emit (opcode (dest, l, r), lineOf strm, chunk), strm)
         end
 
       and number n (scope, chunk, strm) =
@@ -63,7 +65,7 @@ struct
           val (idx, chunk) = CB.addConst (Constant.NUM n, chunk)
           val (reg, chunk) = CB.alloc chunk
         in
-          (scope, CB.emit (OP.LOAD (reg, idx), chunk), strm)
+          (scope, CB.emit (OP.LOAD (reg, idx), lineOf strm, chunk), strm)
         end
 
       and string s (scope, chunk, strm) =
@@ -71,14 +73,14 @@ struct
           val (idx, chunk) = CB.addConst (Constant.STR s , chunk)
           val (reg, chunk) = CB.alloc chunk
         in
-          (scope, CB.emit (OP.LOAD (reg, idx), chunk), strm)
+          (scope, CB.emit (OP.LOAD (reg, idx), lineOf strm, chunk), strm)
         end
 
       and literal opcode (scope, chunk, strm) =
         let
           val (reg, chunk) = CB.alloc chunk
         in
-          (scope, CB.emit (opcode reg, chunk), strm)
+          (scope, CB.emit (opcode reg, lineOf strm, chunk), strm)
         end
 
       and grouping st =
@@ -93,23 +95,30 @@ struct
         namedVariable canAssign name st
 
       and namedVariable canAssign name (scope, chunk, strm) =
-        case Scope.resolve scope name of
-          SOME reg => (scope, CB.push (reg, chunk), strm)
-        | NONE =>
+        case (Scope.resolve scope name, canAssign, rdr strm) of
+          (SOME reg, true, SOME (L.ASSIGN, strm)) =>
+          let val (scope, chunk, strm) = exp (scope, chunk, strm)
+          in
+            (scope, CB.emit (OP.MOV (OP.R reg, CB.peek chunk), lineOf strm, chunk), strm)
+          end
+        | (SOME reg, _, _) =>
+          let val (tmp, chunk) = CB.alloc chunk
+          in
+            (scope, CB.emit (OP.MOV (tmp, OP.R reg), lineOf strm, chunk), strm)
+          end
+        | (NONE, true, SOME (L.ASSIGN, strm)) =>
           let
             val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+            val (scope, chunk, strm) = exp (scope, chunk, strm)
           in
-            case (canAssign, rdr strm) of
-              (true, SOME (L.ASSIGN, strm)) =>
-              let val (scope, chunk, strm) = exp (scope, chunk, strm)
-              in
-                (scope, CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), chunk), strm)
-              end
-            | _ =>
-              let val (reg, chunk) = CB.alloc chunk
-              in
-                (scope, CB.emit (OP.GET_GLOBAL (reg, id), chunk), strm)
-              end
+            (scope, CB.emit (OP.SET_GLOBAL (CB.peek chunk, id), lineOf strm, chunk), strm)
+          end
+        | _ =>
+          let
+            val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+            val (reg, chunk) = CB.alloc chunk
+          in
+            (scope, CB.emit (OP.GET_GLOBAL (reg, id), lineOf strm, chunk), strm)
           end
 
       and parsePrec prec (scope, chunk, strm) =
@@ -175,54 +184,66 @@ struct
               loop ([reg], scope, chunk, strm)
             end
 
-          fun assignTargets ([], _, chunk) = chunk
-            | assignTargets (name::names, reg::regs, chunk) =
-              let
-                val (id, chunk) = CB.addConst (Constant.STR name, chunk)
-                val chunk = CB.emit (OP.SET_GLOBAL (reg, id), chunk)
-              in
-                assignTargets (names, regs, chunk)
-              end
-            | assignTargets (name::names, [], chunk) =
-              let
-                val (nilReg, chunk) = CB.alloc chunk
-                val chunk = CB.emit (OP.LOAD_NIL nilReg, chunk)
-                val (id, chunk) = CB.addConst (Constant.STR name, chunk)
-                val chunk = CB.emit (OP.SET_GLOBAL (nilReg, id), chunk)
-              in
-                assignTargets (names, [], chunk)
-              end
+          fun assignTargets ([], _, _, _, chunk) = chunk
+            | assignTargets (name::names, reg::regs, scope, line, chunk) =
+              (case Scope.resolve scope name of
+                SOME localReg =>
+                  assignTargets (names, regs, scope, line,
+                    CB.emit (OP.MOV (OP.R localReg, reg), line, chunk))
+              | NONE =>
+                  let
+                    val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+                    val chunk = CB.emit (OP.SET_GLOBAL (reg, id), line, chunk)
+                  in
+                    assignTargets (names, regs, scope, line, chunk)
+                  end)
+            | assignTargets (name::names, [], scope, line, chunk) =
+              (case Scope.resolve scope name of
+                SOME localReg =>
+                  assignTargets (names, [], scope, line,
+                    CB.emit (OP.LOAD_NIL (OP.R localReg), line, chunk))
+              | NONE =>
+                  let
+                    val (nilReg, chunk) = CB.alloc chunk
+                    val chunk = CB.emit (OP.LOAD_NIL nilReg, line, chunk)
+                    val (id, chunk) = CB.addConst (Constant.STR name, chunk)
+                    val chunk = CB.emit (OP.SET_GLOBAL (nilReg, id), line, chunk)
+                  in
+                    assignTargets (names, [], scope, line, chunk)
+                  end)
         in
           case parseAssignTarget strm of
             SOME (names, strm) =>
             let
               val (regs, scope, chunk, strm) = parseExprList (scope, chunk, strm)
-              val chunk = assignTargets (names, regs, chunk)
+              val line = lineOf strm
+              val chunk = assignTargets (names, regs, scope, line, chunk)
             in
               (scope, chunk, strm)
             end
           | NONE => parsePrec Prec.assign (scope, chunk, strm)
         end
 
-      and localDecl [name] (scope, chunk, strm) =
-        case rdr strm of
-          SOME (L.ASSIGN, strm) =>
-            let
-              val (scope, chunk, strm) = exp (scope, chunk, strm)
-            in
-              (Scope.add scope name, chunk, strm)
-            end
+        and localDecl [name] (scope, chunk, strm) =
+          case rdr strm of
+            SOME (L.ASSIGN, strm) =>
+              let
+                val (scope, chunk, strm) = exp (scope, chunk, strm)
+                val OP.R reg = CB.peek chunk
+              in
+                (Scope.add scope (name, reg), chunk, strm)
+              end
         | _ => raise Fail "expect assignment symbol"
 
       and ifStat st =
         let
           datatype term = T_END | T_ELSE | T_ELSEIF
 
-          fun emitJump chunk =
-            (CB.count chunk, CB.emit (OP.JMP 0, chunk))
+          fun emitJump (line, chunk) =
+            (CB.count chunk, CB.emit (OP.JMP 0, line, chunk))
 
-          fun emitJumpIfFalse (reg, chunk) =
-            (CB.count chunk, CB.emit (OP.JMP_IF_FALSE (reg, 0), chunk))
+          fun emitJumpIfFalse (reg, line, chunk) =
+            (CB.count chunk, CB.emit (OP.JMP_IF_FALSE (reg, 0), line, chunk))
 
           fun patchJump (pos, target, chunk) =
             CB.patch (pos, OP.JMP (target - pos - 1), chunk)
@@ -253,13 +274,13 @@ struct
 
           fun compileBranch (scope, chunk, strm, condReg, endJumps) =
             let
-              val (falsePos, chunk) = emitJumpIfFalse (condReg, chunk)
+              val (falsePos, chunk) = emitJumpIfFalse (condReg, lineOf strm, chunk)
               val (_, chunk, strm, term) = block (Scope.begin scope, chunk, strm)
               val (chunk, endJumps) =
                 case term of
                   T_END => (chunk, endJumps)
                 | _ =>
-                  let val (jmpPos, chunk) = emitJump chunk
+                  let val (jmpPos, chunk) = emitJump (lineOf strm, chunk)
                   in (chunk, jmpPos::endJumps)
                   end
               val chunk = patchJumpIfFalse (falsePos, condReg, CB.count chunk, chunk)
@@ -302,8 +323,8 @@ struct
           val (scope, chunk, strm) = exp (scope, chunk, strm)
           val condReg = CB.peek chunk
 
-          fun emitJumpIfFalse (reg, chunk) =
-            (CB.count chunk, CB.emit (OP.JMP_IF_FALSE (reg, 0), chunk))
+          fun emitJumpIfFalse (reg, line, chunk) =
+            (CB.count chunk, CB.emit (OP.JMP_IF_FALSE (reg, 0), line, chunk))
 
           fun patchJumpIfFalse (pos, reg, target, chunk) =
             CB.patch (pos, OP.JMP_IF_FALSE (reg, target - pos - 1), chunk)
@@ -316,11 +337,11 @@ struct
           case rdr strm of
             SOME (L.DO, strm) =>
             let
-              val (exitPos, chunk) = emitJumpIfFalse (condReg, chunk)
+              val (exitPos, chunk) = emitJumpIfFalse (condReg, lineOf strm, chunk)
               val (_, chunk, strm) = block (Scope.begin scope, chunk, strm)
               val backPos = CB.count chunk
               val backOffset = loopStart - backPos - 1
-              val chunk = CB.emit (OP.JMP backOffset, chunk)
+              val chunk = CB.emit (OP.JMP backOffset, lineOf strm, chunk)
               val chunk = patchJumpIfFalse (exitPos, condReg, CB.count chunk, chunk)
             in
               (scope, chunk, strm)

@@ -61,8 +61,8 @@ struct
       , line = (Vector.fromList o map #2 o rev) code
       }
 
-    fun emit (opcode, {code, consts, reg, aliased}) =
-      { code = (opcode, ~1)::code
+    fun emit (opcode, line, {code, consts, reg, aliased}) =
+      { code = (opcode, line)::code
       , consts
       , reg
       , aliased

@@ -24,5 +24,6 @@ sig
 
   type 's state
   val mk : 's -> 's state
+  val line : 's state -> int
   val run : (char, 's) StringCvt.reader -> (token, 's state) StringCvt.reader
 end

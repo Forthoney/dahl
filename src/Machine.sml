@@ -93,7 +93,9 @@ struct
             | _ => loop (chunk, ip + 1)
         in
           case Vector.sub (code, ip) of
-            OP.LOAD (OP.R dest, id) =>
+            OP.MOV (OP.R dest, OP.R src) =>
+            (set (dest, get src); loop (chunk, ip + 1))
+          | OP.LOAD (OP.R dest, id) =>
             (set (dest, Constant.toValue (Chunk.getConst (chunk, id))); loop (chunk, ip + 1))
           | OP.LOAD_NIL (OP.R dest) =>
             (set (dest, Value.Nil); loop (chunk, ip + 1))
