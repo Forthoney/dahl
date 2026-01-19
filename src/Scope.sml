@@ -12,7 +12,17 @@ struct
     {locals = locals, currentDepth = currentDepth + 1}
 
   fun exit {locals, currentDepth} =
-    {locals = locals, currentDepth = currentDepth - 1}
+    let
+      val newDepth = currentDepth - 1
+      fun loop [] = {locals = [], currentDepth = newDepth}
+        | loop (locals as {name, depth}::ls) =
+          if depth > newDepth then
+            loop ls
+          else
+            {locals = locals, currentDepth = newDepth}
+    in
+      loop locals
+    end
 
   fun add {locals, currentDepth} name =
     { locals = {name = name, depth = currentDepth}::locals
