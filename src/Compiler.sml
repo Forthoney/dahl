@@ -296,6 +296,38 @@ struct
           | _ => raise Fail "expect 'then'"
         end
 
+      and whileStat (scope, chunk, strm) =
+        let
+          val loopStart = CB.count chunk
+          val (scope, chunk, strm) = exp (scope, chunk, strm)
+          val condReg = CB.peek chunk
+
+          fun emitJumpIfFalse (reg, chunk) =
+            (CB.count chunk, CB.emit (OP.JMP_IF_FALSE (reg, 0), chunk))
+
+          fun patchJumpIfFalse (pos, reg, target, chunk) =
+            CB.patch (pos, OP.JMP_IF_FALSE (reg, target - pos - 1), chunk)
+
+          fun block (st as (_, chunk, strm)) =
+            case rdr strm of
+              SOME (L.END, strm) => (scope, chunk, strm)
+            | _ => block (stat st)
+        in
+          case rdr strm of
+            SOME (L.DO, strm) =>
+            let
+              val (exitPos, chunk) = emitJumpIfFalse (condReg, chunk)
+              val (_, chunk, strm) = block (Scope.begin scope, chunk, strm)
+              val backPos = CB.count chunk
+              val backOffset = loopStart - backPos - 1
+              val chunk = CB.emit (OP.JMP backOffset, chunk)
+              val chunk = patchJumpIfFalse (exitPos, condReg, CB.count chunk, chunk)
+            in
+              (scope, chunk, strm)
+            end
+          | _ => raise Fail "expect 'do'"
+        end
+
       and stat (scope, chunk, strm) =
         case rdr strm of
           NONE => raise Fail "expect statement"
@@ -313,6 +345,7 @@ struct
             SOME (L.IDENT name, strm) => localDecl [name] (scope, chunk, strm)
           | _ => raise Fail "expect name")
         | SOME (L.IF, strm) => ifStat (scope, chunk, strm)
+        | SOME (L.WHILE, strm) => whileStat (scope, chunk, strm)
         | SOME _ => assignment (scope, chunk, strm)
 
       and loop (scope, chunk, strm) =
