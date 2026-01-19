@@ -14,4 +14,5 @@ sig
 
   val get : t -> id -> v
   val idToString : id -> string
+  val toVector : t -> v vector
 end

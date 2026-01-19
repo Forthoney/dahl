@@ -9,6 +9,8 @@ struct
   | LOAD_TRUE of reg
   | LOAD_FALSE of reg
   | LOAD of reg * const
+  | JMP of int
+  | JMP_IF_FALSE of reg * int
   | NEG of reg * reg
   | NOT of reg * reg
   | ADD of reg * reg * reg
@@ -32,6 +34,8 @@ struct
       fun const k = "K[" ^ ConstTable.idToString k ^ "]"
       fun unary name (d, s) = [name, reg d, reg s]
       fun binary name (d, l, r) = [name, reg d, reg l, reg r]
+      fun jump name offset = [name, Int.toString offset]
+      fun jumpIf name (r, offset) = [name, reg r, Int.toString offset]
       val fmt = 
         case c of
           RET (from, to) => ["RET", reg from, reg to]
@@ -39,6 +43,8 @@ struct
         | LOAD_NIL dest => ["LOAD_NIL", reg dest]
         | LOAD_TRUE dest => ["LOAD_TRUE", reg dest]
         | LOAD_FALSE dest => ["LOAD_FALSE", reg dest]
+        | JMP offset => jump "JMP" offset
+        | JMP_IF_FALSE opr => jumpIf "JMP_IF_FALSE" opr
         | NOT opr => unary "NOT" opr
         | NEG opr => unary "NEG" opr
         | ADD opr => binary "ADD" opr

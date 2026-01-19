@@ -27,6 +27,21 @@ struct
       Vector.foldli fmt "" code
     end
 
+  fun dumpConsts ({consts, ...} : t) =
+    let
+      val vec = CT.toVector consts
+      fun fmt (i, c, acc) =
+        let
+          val line = Int.toString i ^ ":\t" ^ V.toString (Constant.toValue c)
+        in
+          case acc of
+            "" => line
+          | _ => acc ^ "\n" ^ line
+        end
+    in
+      Vector.foldli fmt "" vec
+    end
+
   fun getConst ({code, consts, line}, id) =
     CT.get consts id
 
@@ -52,6 +67,26 @@ struct
       , reg
       , aliased
       }
+
+    fun count ({code, ...} : obj) = length code
+
+    fun patch (idx, opcode, {code, consts, reg, aliased}) =
+      let
+        val len = length code
+        val revIdx = len - 1 - idx
+
+        fun update (i, []) = raise Fail "patch out of bounds"
+          | update (0, (_, line)::rest) = (opcode, line)::rest
+          | update (i, x::xs) = x::update (i - 1, xs)
+      in
+        if revIdx < 0 then raise Fail "patch out of bounds"
+        else
+          { code = update (revIdx, code)
+          , consts
+          , reg
+          , aliased
+          }
+      end
 
     fun addConst (k, {code, consts, reg, aliased}) =
       let val id = CB.get consts k

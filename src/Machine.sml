@@ -85,6 +85,12 @@ struct
             in
               (set (dest, V.Boolean v); loop (chunk, ip + 1))
             end
+
+          fun jump offset = loop (chunk, ip + 1 + offset)
+          fun jumpIfFalse (OP.R reg, offset) =
+            case get reg of
+              V.Boolean false | V.Nil => jump offset
+            | _ => loop (chunk, ip + 1)
         in
           case Vector.sub (code, ip) of
             OP.LOAD (OP.R dest, id) =>
@@ -95,6 +101,8 @@ struct
             (set (dest, Value.Boolean true); loop (chunk, ip + 1))
           | OP.LOAD_FALSE (OP.R dest) =>
             (set (dest, Value.Boolean false); loop (chunk, ip + 1))
+          | OP.JMP offset => jump offset
+          | OP.JMP_IF_FALSE opr => jumpIfFalse opr
           | OP.NEG opr => negate opr
           | OP.NOT opr => not_ opr
           | OP.ADD opr => numeric (V.Number o op+) opr
@@ -120,7 +128,24 @@ struct
           | OP.RET (OP.R from, OP.R to) => regs
         end
     in
-      loop (chunk, 0)
-      handle Subscript => regs
+      ({ regs = loop (chunk, 0) handle Subscript => regs
+       , globals = globals
+       } : state)
+    end
+
+  fun dumpGlobals ({globals, ...} : state) =
+    let
+      fun fmt ((k, v), acc) =
+        let
+          val line = k ^ ":\t" ^ V.toString v
+        in
+          case acc of
+            "" => line
+          | _ => acc ^ "\n" ^ line
+        end
+      val acc = ref ""
+      val _ = G.app (fn kv => acc := fmt (kv, !acc)) globals
+    in
+      !acc
     end
 end

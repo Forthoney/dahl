@@ -33,4 +33,5 @@ struct
     Vector.sub (v, id)
 
   val idToString = Int.toString
+  fun toVector v = v
 end

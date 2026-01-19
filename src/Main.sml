@@ -4,9 +4,15 @@ fun run rawStrm =
     val strm = (Lexer.mk o Stream.Char.mk o TextIO.getInstream) rawStrm
     val chunk = Compiler.run rdr strm
   in
-    ( print (Chunk.disassemble chunk ^ "\n")
-    ; print (Machine.dump (Machine.interpret chunk) ^ "\n")
-    )
+      let
+        val state = Machine.interpret chunk
+      in
+        ( print (Chunk.disassemble chunk ^ "\n")
+        ; print ("Constants\n" ^ Chunk.dumpConsts chunk ^ "\n")
+        ; print ("Globals\n" ^ Machine.dumpGlobals state ^ "\n")
+        ; print ("Registers\n" ^ Machine.dump (#regs state) ^ "\n")
+        )
+      end
   end
 
 val _ =
