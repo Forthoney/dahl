@@ -36,32 +36,39 @@ struct
       { code : (OP.t * int) list
       , consts : CB.obj
       , reg : int
+      , aliased : int list
       }
-    val new = {code = [], consts = CB.new (), reg = 0}
+    val new = {code = [], consts = CB.new (), reg = 0, aliased = []}
 
-    fun freeze ({code, consts, reg} : obj) =
+    fun freeze ({code, consts, ...} : obj) =
       { code = (Vector.fromList o map #1 o rev) code
       , consts = CB.freeze consts
       , line = (Vector.fromList o map #2 o rev) code
       }
 
-    fun emit (opcode, {code, consts, reg}) =
+    fun emit (opcode, {code, consts, reg, aliased}) =
       { code = (opcode, ~1)::code
-      , consts = consts
-      , reg = reg
+      , consts
+      , reg
+      , aliased
       }
 
-    fun addConst (k, {code, consts, reg}) =
+    fun addConst (k, {code, consts, reg, aliased}) =
       let val id = CB.get consts k
-      in (id, {code, reg, consts})
+      in (id, {code, reg, consts, aliased})
       end
 
-    fun alloc {code, consts, reg} =
-      (OP.R reg, {code, consts, reg = reg + 1})
+    fun alloc {code, consts, reg, aliased} =
+      (OP.R reg, {code, consts, reg = reg + 1, aliased})
 
-    fun pop {code, consts, reg} =
-      (OP.R (reg - 1), {code, consts, reg = reg - 1})
+    fun pop {code, consts, reg, aliased = []} =
+        (OP.R (reg - 1), {code, consts, reg = reg - 1, aliased = []})
+      | pop {code, consts, reg, aliased = x::xs} =
+        (OP.R x, {code, consts, reg, aliased = xs})
 
-    fun peek {code, consts, reg} = OP.R (reg - 1)
+    fun peek {code, consts, reg, aliased} = OP.R (reg - 1)
+
+    fun push (r, {code, consts, reg, aliased}) =
+      {code, consts, reg, aliased = r::aliased}
   end
 end

@@ -13,6 +13,7 @@ sig
     val addConst: Constant.t * obj -> (Opcode.const * obj)
     val alloc : obj -> (Opcode.reg * obj)
     val pop : obj -> (Opcode.reg * obj)
+    val push : (int * obj) -> obj
     val peek : obj -> Opcode.reg
   end
 end

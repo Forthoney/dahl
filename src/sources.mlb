@@ -25,6 +25,7 @@ in
 	Chunk.sml
 	Machine.sml
 	Precedence.sml
+	Scope.sml
 	Compiler.sml
 end
 end
